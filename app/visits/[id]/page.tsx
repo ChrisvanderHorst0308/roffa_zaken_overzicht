@@ -35,7 +35,7 @@ export default function VisitDetailPage() {
         .eq('id', user.id)
         .single()
 
-      const isAdmin = profile?.role === 'admin'
+      const isAdmin = profile?.role === 'admin' || profile?.role === 'reichskanzlier'
 
       const { data: visitData, error: visitError } = await supabase
         .from('visits')

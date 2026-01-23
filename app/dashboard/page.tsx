@@ -34,7 +34,7 @@ export default function DashboardPage() {
         .eq('id', user.id)
         .single()
 
-      if (profile?.role === 'admin') {
+      if (profile?.role === 'admin' || profile?.role === 'reichskanzlier') {
         const { data: visitsData, error: visitsError } = await supabase
           .from('visits')
           .select(`

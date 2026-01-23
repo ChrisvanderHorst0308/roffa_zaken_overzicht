@@ -30,7 +30,7 @@ export default function AdminPage() {
         .eq('id', user.id)
         .single()
 
-      if (!profileData || profileData.role !== 'admin') {
+      if (!profileData || (profileData.role !== 'admin' && profileData.role !== 'reichskanzlier')) {
         toast.error('Access denied. Admin only.')
         router.push('/dashboard')
         return

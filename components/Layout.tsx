@@ -36,7 +36,7 @@ export default function Layout({ children }: LayoutProps) {
     )
   }
 
-  const isAdmin = profile?.role === 'admin'
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'reichskanzlier'
 
   return (
     <div className="min-h-screen bg-gray-50">

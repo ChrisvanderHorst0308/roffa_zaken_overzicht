@@ -56,7 +56,7 @@ export default function NewVisitPage() {
         .eq('id', user.id)
         .single()
 
-      if (profile?.role === 'admin') {
+      if (profile?.role === 'admin' || profile?.role === 'reichskanzlier') {
         const { data: projectsData } = await supabase
           .from('projects')
           .select('*')
