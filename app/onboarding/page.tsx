@@ -35,16 +35,16 @@ export default function OnboardingPage() {
       content: (
         <div className="space-y-4">
           <p className="text-gray-600">
-            To create a new visit, click the "New Visit" button on your dashboard.
+            To create a new visit, click the &quot;New Visit&quot; button on your dashboard.
           </p>
           <div className="space-y-3">
             <div className="bg-gray-50 rounded-lg p-4">
               <h4 className="font-semibold mb-2">Step 1: Select a Project</h4>
-              <p className="text-sm text-gray-600">Choose the project you're working on from the dropdown.</p>
+              <p className="text-sm text-gray-600">Choose the project you&apos;re working on from the dropdown.</p>
             </div>
             <div className="bg-gray-50 rounded-lg p-4">
               <h4 className="font-semibold mb-2">Step 2: Choose or Create Location</h4>
-              <p className="text-sm text-gray-600">Search for an existing location or create a new one if it doesn't exist yet.</p>
+              <p className="text-sm text-gray-600">Search for an existing location or create a new one if it doesn&apos;t exist yet.</p>
             </div>
             <div className="bg-gray-50 rounded-lg p-4">
               <h4 className="font-semibold mb-2">Step 3: Fill in Visit Details</h4>
@@ -69,7 +69,7 @@ export default function OnboardingPage() {
           <div className="space-y-3">
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <h4 className="font-semibold text-green-900 mb-2">Green Border</h4>
-              <p className="text-sm text-green-800">Indicates locations you've already visited</p>
+              <p className="text-sm text-green-800">Indicates locations you&apos;ve already visited</p>
             </div>
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <h4 className="font-semibold text-yellow-900 mb-2">Yellow Border</h4>
@@ -77,7 +77,7 @@ export default function OnboardingPage() {
             </div>
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
               <h4 className="font-semibold text-gray-900 mb-2">Gray Border</h4>
-              <p className="text-sm text-gray-800">Location hasn't been visited yet</p>
+              <p className="text-sm text-gray-800">Location hasn&apos;t been visited yet</p>
             </div>
           </div>
         </div>
