@@ -90,7 +90,7 @@ export default function AdminVisitsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">All Visits</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">All Visits</h1>
 
       <div className="bg-white rounded-lg shadow p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -141,7 +141,7 @@ export default function AdminVisitsPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -197,6 +197,61 @@ export default function AdminVisitsPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="md:hidden space-y-4">
+          {filteredVisits.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              No visits found
+            </div>
+          ) : (
+            filteredVisits.map(visit => (
+              <div
+                key={visit.id}
+                onClick={() => router.push(`/visits/${visit.id}`)}
+                className="bg-white border border-gray-200 rounded-lg p-4 cursor-pointer hover:border-indigo-300 hover:shadow-md transition-all"
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex-1">
+                    <h3 className="text-base font-semibold text-gray-900">
+                      {visit.location.name}
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {visit.location.city}
+                    </p>
+                  </div>
+                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                    visit.status === 'interested' ? 'bg-green-100 text-green-800' :
+                    visit.status === 'demo_planned' ? 'bg-blue-100 text-blue-800' :
+                    visit.status === 'not_interested' ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {visit.status.replace('_', ' ')}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
+                  <div>
+                    <span className="text-gray-500">Date:</span>
+                    <span className="ml-2 text-gray-900">
+                      {new Date(visit.visit_date).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Recruiter:</span>
+                    <span className="ml-2 text-gray-900">{visit.recruiter.name}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Project:</span>
+                    <span className="ml-2 text-gray-900">{visit.project.name}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">POS:</span>
+                    <span className="ml-2 text-gray-900">{visit.pos_system}</span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

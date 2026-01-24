@@ -98,7 +98,7 @@ export default function VisitDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <Link
             href="/dashboard"
@@ -106,11 +106,11 @@ export default function VisitDetailPage() {
           >
             ← Back to Dashboard
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">Visit Details</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Visit Details</h1>
         </div>
         <Link
           href={`/visits/${visitId}/edit`}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-center"
         >
           Edit Visit
         </Link>
@@ -154,8 +154,8 @@ export default function VisitDetailPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow p-6 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="bg-white rounded-lg shadow p-4 sm:p-6 space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           <div>
             <h3 className="text-sm font-medium text-gray-500 mb-1">Location</h3>
             <p className="text-lg font-semibold text-gray-900">

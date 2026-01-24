@@ -90,10 +90,11 @@ export default function AdminRecruitersPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">Recruiters</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Recruiters</h1>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
+        <div className="hidden md:block overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
@@ -146,6 +147,54 @@ export default function AdminRecruitersPage() {
             ))}
           </tbody>
         </table>
+        </div>
+
+        <div className="md:hidden space-y-4 p-4">
+          {recruiters.map(recruiter => (
+            <div
+              key={recruiter.id}
+              className="border border-gray-200 rounded-lg p-4"
+            >
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex-1">
+                  <h3 className="text-base font-semibold text-gray-900">{recruiter.name}</h3>
+                  <div className="mt-2">
+                    <label className="block text-xs text-gray-500 mb-1">Role:</label>
+                    <select
+                      value={recruiter.role}
+                      onChange={(e) => handleUpdateRole(recruiter.id, e.target.value as UserRole)}
+                      className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+                    >
+                      <option value="recruiter">Recruiter</option>
+                      <option value="admin">Admin</option>
+                      <option value="reichskanzlier">Reichskanzlier</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end space-y-2">
+                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                    recruiter.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {recruiter.active ? 'Active' : 'Inactive'}
+                  </span>
+                  <button
+                    onClick={() => handleToggleActive(recruiter)}
+                    className={`text-sm ${
+                      recruiter.active
+                        ? 'text-red-600 hover:text-red-900'
+                        : 'text-green-600 hover:text-green-900'
+                    }`}
+                  >
+                    {recruiter.active ? 'Deactivate' : 'Activate'}
+                  </button>
+                </div>
+              </div>
+              <div className="text-xs text-gray-500 mt-2">
+                Created: {new Date(recruiter.created_at).toLocaleDateString()}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )

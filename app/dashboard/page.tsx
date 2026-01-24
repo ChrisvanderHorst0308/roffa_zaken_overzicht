@@ -14,6 +14,7 @@ export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedProject, setSelectedProject] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
+  const [isAdmin, setIsAdmin] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -34,7 +35,10 @@ export default function DashboardPage() {
         .eq('id', user.id)
         .single()
 
-      if (profile?.role === 'admin' || profile?.role === 'reichskanzlier') {
+      const userIsAdmin = profile?.role === 'admin' || profile?.role === 'reichskanzlier'
+      setIsAdmin(userIsAdmin)
+
+      if (userIsAdmin) {
         const { data: visitsData, error: visitsError } = await supabase
           .from('visits')
           .select(`
@@ -51,6 +55,7 @@ export default function DashboardPage() {
         const { data: projectsData, error: projectsError } = await supabase
           .from('projects')
           .select('*')
+          .eq('active', true)
           .order('name')
 
         if (projectsError) throw projectsError
@@ -69,17 +74,21 @@ export default function DashboardPage() {
         if (visitsError) throw visitsError
         setVisits(visitsData || [])
 
-        const { data: projectsData, error: projectsError } = await supabase
-          .from('projects')
+        const { data: assignmentsData, error: assignmentsError } = await supabase
+          .from('recruiter_projects')
           .select(`
-            *,
-            recruiter_projects!inner(recruiter_id)
+            project:projects(*)
           `)
-          .eq('recruiter_projects.recruiter_id', user.id)
-          .order('name')
+          .eq('recruiter_id', user.id)
 
-        if (projectsError) throw projectsError
-        setProjects(projectsData || [])
+        if (assignmentsError) throw assignmentsError
+
+        const assignedProjects = (assignmentsData || [])
+          .map((assignment: any) => assignment.project)
+          .filter((p: Project) => p && p.active)
+          .sort((a: Project, b: Project) => a.name.localeCompare(b.name))
+
+        setProjects(assignedProjects)
       }
     } catch (error: any) {
       toast.error(error.message || 'Failed to load data')
@@ -116,7 +125,44 @@ export default function DashboardPage() {
         </Link>
       </div>
 
+      {projects.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            {isAdmin ? 'All Projects' : 'My Projects'}
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {projects.map(project => (
+              <div
+                key={project.id}
+                className="border border-gray-200 rounded-lg p-4 hover:border-indigo-300 hover:shadow-md transition-all"
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900">{project.name}</h3>
+                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                    project.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {project.active ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                <div className="mt-2 text-sm text-gray-600">
+                  {visits.filter(v => v.project_id === project.id).length} visit(s)
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {projects.length === 0 && !isAdmin && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+          <p className="text-yellow-800">
+            You are not assigned to any projects yet. Contact an admin to get assigned to a project.
+          </p>
+        </div>
+      )}
+
       <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Visits</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -165,7 +211,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -227,6 +273,57 @@ export default function DashboardPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="md:hidden space-y-4">
+          {filteredVisits.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              No visits found
+            </div>
+          ) : (
+            filteredVisits.map(visit => (
+              <div
+                key={visit.id}
+                onClick={() => router.push(`/visits/${visit.id}`)}
+                className="bg-white border border-gray-200 rounded-lg p-4 cursor-pointer hover:border-indigo-300 hover:shadow-md transition-all"
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex-1">
+                    <h3 className="text-base font-semibold text-gray-900">
+                      {visit.location.name}
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {visit.location.city}
+                    </p>
+                  </div>
+                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                    visit.status === 'interested' ? 'bg-green-100 text-green-800' :
+                    visit.status === 'demo_planned' ? 'bg-blue-100 text-blue-800' :
+                    visit.status === 'not_interested' ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {visit.status.replace('_', ' ')}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
+                  <div>
+                    <span className="text-gray-500">Date:</span>
+                    <span className="ml-2 text-gray-900">
+                      {new Date(visit.visit_date).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Project:</span>
+                    <span className="ml-2 text-gray-900">{visit.project.name}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-gray-500">POS:</span>
+                    <span className="ml-2 text-gray-900">{visit.pos_system}</span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
