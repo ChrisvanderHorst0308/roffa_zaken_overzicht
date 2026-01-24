@@ -117,12 +117,20 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <Link
-          href="/visits/new"
-          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          New Visit
-        </Link>
+        <div className="flex gap-3">
+          <Link
+            href="/onboarding"
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            Start onboarding
+          </Link>
+          <Link
+            href="/visits/new"
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            New Visit
+          </Link>
+        </div>
       </div>
 
       {projects.length > 0 && (
