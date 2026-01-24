@@ -158,8 +158,8 @@ export default function AdminProjectsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Projects</h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Projects</h1>
         <button
           onClick={() => {
             setEditingProject(null)
@@ -174,7 +174,7 @@ export default function AdminProjectsPage() {
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
         {projects.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
+          <div className="p-6 sm:p-8 text-center text-gray-500">
             <p className="mb-4">No projects yet. Create your first project to get started.</p>
             <button
               onClick={() => {
@@ -188,7 +188,9 @@ export default function AdminProjectsPage() {
             </button>
           </div>
         ) : (
-          <table className="min-w-full divide-y divide-gray-200">
+          <>
+          <div className="hidden md:block overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
@@ -270,6 +272,87 @@ export default function AdminProjectsPage() {
               ))}
             </tbody>
           </table>
+          </div>
+
+          <div className="md:hidden space-y-4 p-4">
+            {projects.map(project => (
+              <div
+                key={project.id}
+                className="border border-gray-200 rounded-lg p-4"
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex-1">
+                    {editingProject?.id === project.id ? (
+                      <input
+                        type="text"
+                        value={editingProject.name}
+                        onChange={(e) => setEditingProject({ ...editingProject, name: e.target.value })}
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-base font-semibold"
+                        onBlur={() => handleUpdateProject(editingProject)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleUpdateProject(editingProject)
+                          }
+                        }}
+                        autoFocus
+                      />
+                    ) : (
+                      <h3 className="text-base font-semibold text-gray-900">{project.name}</h3>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                      project.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {project.active ? 'Active' : 'Inactive'}
+                    </span>
+                    {editingProject?.id !== project.id && (
+                      <button
+                        onClick={() => setEditingProject(project)}
+                        className="text-indigo-600 hover:text-indigo-900 text-sm"
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {editingProject?.id === project.id && (
+                  <div className="mb-3">
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={editingProject.active}
+                        onChange={(e) => setEditingProject({ ...editingProject, active: e.target.checked })}
+                        className="rounded border-gray-300"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">Active</span>
+                    </label>
+                  </div>
+                )}
+                <div>
+                  <div className="text-xs text-gray-500 mb-2">Assigned Recruiters:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {recruiters.map(recruiter => {
+                      const isAssigned = assignments[project.id]?.includes(recruiter.id) || false
+                      return (
+                        <button
+                          key={recruiter.id}
+                          onClick={() => handleToggleAssignment(project.id, recruiter.id)}
+                          className={`px-2 py-1 text-xs rounded ${
+                            isAssigned
+                              ? 'bg-indigo-100 text-indigo-800'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          {recruiter.name} {isAssigned ? '✓' : '+'}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
@@ -283,7 +366,7 @@ export default function AdminProjectsPage() {
             }
           }}
         >
-          <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
+          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full mx-4 shadow-xl">
             <h2 className="text-xl font-bold mb-4">New Project</h2>
             <input
               type="text"

@@ -3,6 +3,8 @@ export type UserRole = 'admin' | 'recruiter' | 'reichskanzlier'
 export interface Profile {
   id: string
   name: string
+  nickname: string | null
+  profile_picture_url: string | null
   role: UserRole
   active: boolean
   created_at: string
