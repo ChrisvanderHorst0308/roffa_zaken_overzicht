@@ -4,13 +4,22 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { Location } from '@/types'
-import { GoogleMapsLoader } from '@/components/GoogleMapsLoader'
-import { LocationsMap } from '@/components/LocationsMap'
+import dynamic from 'next/dynamic'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { MapPin, Search, Building2 } from 'lucide-react'
 import Link from 'next/link'
+
+// Dynamic import for Leaflet (client-side only)
+const LeafletMap = dynamic(() => import('@/components/LeafletMap').then(mod => mod.LeafletMap), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center min-h-[400px] bg-gray-100">
+      <div className="text-gray-500">Loading map...</div>
+    </div>
+  )
+})
 
 interface LocationWithVisitInfo extends Location {
   visitCount?: number
@@ -200,24 +209,7 @@ export default function MapPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0 overflow-hidden rounded-b-lg">
-          {!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? (
-            <div className="flex items-center justify-center min-h-[400px] bg-gray-100">
-              <div className="text-center p-6">
-                <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 font-medium">Google Maps API Key Required</p>
-                <p className="text-sm text-gray-500 mt-2">
-                  Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to your .env.local file
-                </p>
-                <div className="mt-4 p-3 bg-gray-200 rounded text-xs font-mono text-left">
-                  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_api_key_here
-                </div>
-              </div>
-            </div>
-          ) : (
-            <GoogleMapsLoader>
-              <LocationsMap locations={filteredLocations} />
-            </GoogleMapsLoader>
-          )}
+          <LeafletMap locations={filteredLocations} />
         </CardContent>
       </Card>
 
