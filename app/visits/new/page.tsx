@@ -48,6 +48,18 @@ interface OSMResult {
   class?: string
 }
 
+// Helper function to normalize website URL
+const normalizeWebsiteUrl = (url: string | null | undefined): string | null => {
+  if (!url || url.trim() === '') return null
+  const trimmed = url.trim()
+  // If it already has a protocol, return as is
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed
+  }
+  // Otherwise, add https://
+  return `https://${trimmed}`
+}
+
 export default function NewVisitPage() {
   const router = useRouter()
   const [projects, setProjects] = useState<Project[]>([])
@@ -298,7 +310,7 @@ export default function NewVisitPage() {
               name: formData.location_name,
               city: formData.location_city,
               address: formData.location_address || null,
-              website: formData.location_website || null,
+              website: normalizeWebsiteUrl(formData.location_website),
               latitude: formData.location_lat,
               longitude: formData.location_lng,
             })
@@ -395,7 +407,7 @@ export default function NewVisitPage() {
               name: formData.location_name,
               city: formData.location_city,
               address: formData.location_address || null,
-              website: formData.location_website || null,
+              website: normalizeWebsiteUrl(formData.location_website),
               latitude: formData.location_lat,
               longitude: formData.location_lng,
             })
@@ -605,10 +617,10 @@ export default function NewVisitPage() {
                 <div className="relative">
                   <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <input
-                    type="url"
+                    type="text"
                     value={formData.location_website}
                     onChange={(e) => setFormData({ ...formData, location_website: e.target.value })}
-                    placeholder="Website (optional)"
+                    placeholder="Website (optional, bijv. orderli.com)"
                     className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>

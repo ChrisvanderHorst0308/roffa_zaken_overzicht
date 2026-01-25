@@ -66,22 +66,11 @@ export default function DashboardPage() {
         if (projectsError) throw projectsError
         setProjects(projectsData || [])
       } else {
-        const { data: visitsData, error: visitsError } = await supabase
-          .from('visits')
-          .select(`
-            *,
-            location:locations(*),
-            project:projects(*)
-          `)
-          .eq('recruiter_id', user.id)
-          .order('visit_date', { ascending: false })
-
-        if (visitsError) throw visitsError
-        setVisits(visitsData || [])
-
+        // First get assigned projects
         const { data: assignmentsData, error: assignmentsError } = await supabase
           .from('recruiter_projects')
           .select(`
+            project_id,
             project:projects(*)
           `)
           .eq('recruiter_id', user.id)
@@ -94,6 +83,28 @@ export default function DashboardPage() {
           .sort((a: Project, b: Project) => a.name.localeCompare(b.name))
 
         setProjects(assignedProjects)
+
+        // Get project IDs for filtering visits
+        const projectIds = (assignmentsData || []).map((a: any) => a.project_id)
+
+        if (projectIds.length > 0) {
+          // Fetch ALL visits for assigned projects (not just own visits)
+          const { data: visitsData, error: visitsError } = await supabase
+            .from('visits')
+            .select(`
+              *,
+              location:locations(*),
+              project:projects(*),
+              recruiter:profiles(id, name, nickname)
+            `)
+            .in('project_id', projectIds)
+            .order('visit_date', { ascending: false })
+
+          if (visitsError) throw visitsError
+          setVisits(visitsData || [])
+        } else {
+          setVisits([])
+        }
       }
     } catch (error: any) {
       toast.error(error.message || 'Failed to load data')
@@ -304,6 +315,7 @@ export default function DashboardPage() {
                 <tr className="border-b">
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Date</th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Location</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Recruiter</th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Project</th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Status</th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">POS System</th>
@@ -312,7 +324,7 @@ export default function DashboardPage() {
               <tbody>
                 {filteredVisits.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="h-24 text-center text-muted-foreground">
+                    <td colSpan={6} className="h-24 text-center text-muted-foreground">
                       No visits found
                     </td>
                   </tr>
@@ -334,6 +346,9 @@ export default function DashboardPage() {
                           <MapPin className="h-4 w-4 text-muted-foreground" />
                           <span className="text-sm font-medium">{visit.location.name}, {visit.location.city}</span>
                         </div>
+                      </td>
+                      <td className="p-4 align-middle">
+                        <span className="text-sm">{visit.recruiter?.nickname || visit.recruiter?.name || 'Unknown'}</span>
                       </td>
                       <td className="p-4 align-middle">
                         <div className="flex items-center gap-2">
@@ -390,7 +405,10 @@ export default function DashboardPage() {
                         <Briefcase className="h-4 w-4" />
                         {visit.project.name}
                       </div>
-                      <div className="col-span-2 text-muted-foreground">
+                      <div className="text-muted-foreground">
+                        By: {visit.recruiter?.nickname || visit.recruiter?.name || 'Unknown'}
+                      </div>
+                      <div className="text-muted-foreground">
                         POS: {visit.pos_system}
                       </div>
                     </div>
