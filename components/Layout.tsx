@@ -70,6 +70,16 @@ export default function Layout({ children }: LayoutProps) {
                 >
                   Locations
                 </Link>
+                <Link
+                  href="/map"
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${
+                    pathname === '/map'
+                      ? 'bg-gray-100 text-gray-900'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Map
+                </Link>
                 {isAdmin && (
                   <>
                     <Link
@@ -192,6 +202,17 @@ export default function Layout({ children }: LayoutProps) {
                   }`}
                 >
                   Locations
+                </Link>
+                <Link
+                  href="/map"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block px-3 py-2 rounded-md text-base font-medium ${
+                    pathname === '/map'
+                      ? 'bg-gray-100 text-gray-900'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Map
                 </Link>
                 {isAdmin && (
                   <>

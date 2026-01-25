@@ -28,23 +28,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true
     let subscription: any = null
+    let timeoutId: NodeJS.Timeout | null = null
 
     const initAuth = async () => {
       try {
+        // Set a timeout to prevent infinite loading
+        timeoutId = setTimeout(() => {
+          if (mounted) {
+            console.warn('Auth initialization timeout')
+            setLoading(false)
+          }
+        }, 10000) // 10 second timeout
+
         if (!supabase) {
-          if (mounted) setLoading(false)
+          if (mounted) {
+            setLoading(false)
+            if (timeoutId) clearTimeout(timeoutId)
+          }
           return
         }
 
         const { data: { user }, error } = await supabase.auth.getUser()
         
-        if (!mounted) return
+        if (!mounted) {
+          if (timeoutId) clearTimeout(timeoutId)
+          return
+        }
 
         if (error || !user) {
           if (mounted) {
             setUser(null)
             setProfile(null)
             setLoading(false)
+            if (timeoutId) clearTimeout(timeoutId)
           }
           return
         }
@@ -52,18 +68,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (mounted) setUser(user)
 
         try {
-          const { data: profileData } = await getUserProfile(user.id)
-          if (mounted && profileData) {
-            setProfile(profileData)
+          const { data: profileData, error: profileError } = await getUserProfile(user.id)
+          if (mounted) {
+            if (profileData) {
+              setProfile(profileData)
+            } else if (profileError) {
+              console.error('Profile error:', profileError)
+            }
+            setLoading(false)
+            if (timeoutId) clearTimeout(timeoutId)
           }
         } catch (err) {
           console.error('Profile error:', err)
+          if (mounted) {
+            setLoading(false)
+            if (timeoutId) clearTimeout(timeoutId)
+          }
         }
-
-        if (mounted) setLoading(false)
       } catch (err) {
         console.error('Auth init error:', err)
-        if (mounted) setLoading(false)
+        if (mounted) {
+          setLoading(false)
+          if (timeoutId) clearTimeout(timeoutId)
+        }
       }
     }
 
@@ -94,6 +121,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted = false
       if (subscription) {
         subscription.unsubscribe()
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId)
       }
     }
   }, [])

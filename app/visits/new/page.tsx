@@ -6,6 +6,47 @@ import { supabase } from '@/lib/supabaseClient'
 import { Project, Location, VisitStatus } from '@/types'
 import toast from 'react-hot-toast'
 import Modal from '@/components/Modal'
+import { MapPin, Building2, Globe, Navigation, Search, Loader2, Monitor } from 'lucide-react'
+
+// POS Systems list
+const POS_SYSTEMS = [
+  { id: 'lightspeed-k', name: 'Lightspeed K' },
+  { id: 'lightspeed', name: 'Lightspeed' },
+  { id: 'vectron', name: 'Vectron' },
+  { id: 'untill', name: 'unTill' },
+  { id: 'mpluskassa', name: 'MplusKASSA' },
+  { id: 'bork', name: 'Bork' },
+  { id: 'trivec', name: 'Trivec' },
+  { id: 'matrix', name: 'Matrix' },
+  { id: 'povis', name: 'Povis' },
+  { id: 'micas', name: 'Micas' },
+  { id: 'orderli', name: 'Orderli Standalone' },
+  { id: 'webhook-api', name: 'Webhook API' },
+  { id: 'other', name: 'Overig' },
+]
+
+// OpenStreetMap search result type
+interface OSMResult {
+  place_id: number
+  display_name: string
+  name?: string
+  lat: string
+  lon: string
+  address?: {
+    name?: string
+    amenity?: string
+    shop?: string
+    city?: string
+    town?: string
+    village?: string
+    municipality?: string
+    road?: string
+    house_number?: string
+    postcode?: string
+  }
+  type?: string
+  class?: string
+}
 
 export default function NewVisitPage() {
   const router = useRouter()
@@ -19,6 +60,16 @@ export default function NewVisitPage() {
   const [overlapModalOpen, setOverlapModalOpen] = useState(false)
   const [duplicateInfo, setDuplicateInfo] = useState<any>(null)
   const [overlapInfo, setOverlapInfo] = useState<any>(null)
+  
+  // OpenStreetMap search state
+  const [osmSearch, setOsmSearch] = useState('')
+  const [osmResults, setOsmResults] = useState<OSMResult[]>([])
+  const [osmLoading, setOsmLoading] = useState(false)
+  const [showOsmResults, setShowOsmResults] = useState(false)
+  
+  // POS system state
+  const [selectedPosId, setSelectedPosId] = useState<string>('')
+  const [customPosName, setCustomPosName] = useState('')
 
   const [formData, setFormData] = useState({
     project_id: '',
@@ -27,6 +78,8 @@ export default function NewVisitPage() {
     location_city: '',
     location_address: '',
     location_website: '',
+    location_lat: null as number | null,
+    location_lng: null as number | null,
     pos_system: '',
     spoken_to: '',
     takeaway: false,
@@ -41,6 +94,85 @@ export default function NewVisitPage() {
   useEffect(() => {
     loadData()
   }, [])
+
+  // Debounced OpenStreetMap search
+  useEffect(() => {
+    if (!osmSearch || osmSearch.length < 3) {
+      setOsmResults([])
+      setShowOsmResults(false)
+      return
+    }
+
+    const timeoutId = setTimeout(async () => {
+      setOsmLoading(true)
+      try {
+        // Search for establishments in Netherlands
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?` +
+          `q=${encodeURIComponent(osmSearch + ' Netherlands')}&` +
+          `format=json&` +
+          `addressdetails=1&` +
+          `limit=8&` +
+          `countrycodes=nl`
+        )
+        const data = await response.json()
+        setOsmResults(data)
+        setShowOsmResults(true)
+      } catch (error) {
+        console.error('OSM search error:', error)
+      } finally {
+        setOsmLoading(false)
+      }
+    }, 500)
+
+    return () => clearTimeout(timeoutId)
+  }, [osmSearch])
+
+  const selectOsmResult = (result: OSMResult) => {
+    const city = result.address?.city || 
+                 result.address?.town || 
+                 result.address?.village || 
+                 result.address?.municipality || ''
+    
+    const streetAddress = [
+      result.address?.road,
+      result.address?.house_number
+    ].filter(Boolean).join(' ')
+
+    const name = result.address?.name || 
+                 result.address?.amenity || 
+                 result.address?.shop ||
+                 result.display_name.split(',')[0]
+
+    setFormData(prev => ({
+      ...prev,
+      location_name: name,
+      location_city: city,
+      location_address: streetAddress || result.display_name.split(',').slice(0, 2).join(','),
+      location_lat: parseFloat(result.lat),
+      location_lng: parseFloat(result.lon),
+    }))
+
+    setOsmSearch('')
+    setShowOsmResults(false)
+    toast.success('Location details filled!')
+  }
+
+  const handlePosSelect = (posId: string) => {
+    setSelectedPosId(posId)
+    if (posId !== 'other') {
+      const pos = POS_SYSTEMS.find(p => p.id === posId)
+      setFormData(prev => ({ ...prev, pos_system: pos?.name || '' }))
+      setCustomPosName('')
+    } else {
+      setFormData(prev => ({ ...prev, pos_system: '' }))
+    }
+  }
+
+  const handleCustomPosChange = (name: string) => {
+    setCustomPosName(name)
+    setFormData(prev => ({ ...prev, pos_system: name }))
+  }
 
   const loadData = async () => {
     try {
@@ -167,6 +299,8 @@ export default function NewVisitPage() {
               city: formData.location_city,
               address: formData.location_address || null,
               website: formData.location_website || null,
+              latitude: formData.location_lat,
+              longitude: formData.location_lng,
             })
             .select()
             .single()
@@ -262,6 +396,8 @@ export default function NewVisitPage() {
               city: formData.location_city,
               address: formData.location_address || null,
               website: formData.location_website || null,
+              latitude: formData.location_lat,
+              longitude: formData.location_lng,
             })
             .select()
             .single()
@@ -363,62 +499,166 @@ export default function NewVisitPage() {
               </button>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-4">
               <button
                 type="button"
                 onClick={() => {
                   setShowCreateLocation(false)
-                  setFormData({ ...formData, location_id: '', location_name: '', location_city: '', location_address: '', location_website: '' })
+                  setFormData({ ...formData, location_id: '', location_name: '', location_city: '', location_address: '', location_website: '', location_lat: null, location_lng: null })
                 }}
-                className="text-sm text-gray-600 hover:text-gray-800"
+                className="text-sm text-gray-600 hover:text-gray-800 flex items-center gap-1"
               >
                 ← Search existing location
               </button>
-              <input
-                type="text"
-                required
-                value={formData.location_name}
-                onChange={(e) => setFormData({ ...formData, location_name: e.target.value })}
-                placeholder="Location name *"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <input
-                type="text"
-                required
-                value={formData.location_city}
-                onChange={(e) => setFormData({ ...formData, location_city: e.target.value })}
-                placeholder="City *"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <input
-                type="text"
-                value={formData.location_address}
-                onChange={(e) => setFormData({ ...formData, location_address: e.target.value })}
-                placeholder="Address"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <input
-                type="url"
-                value={formData.location_website}
-                onChange={(e) => setFormData({ ...formData, location_website: e.target.value })}
-                placeholder="Website"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
+
+              {/* OpenStreetMap Search */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <label className="block text-sm font-medium text-blue-800 mb-2 flex items-center gap-2">
+                  <Search className="h-4 w-4" />
+                  Search location
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={osmSearch}
+                    onChange={(e) => setOsmSearch(e.target.value)}
+                    placeholder="Search restaurant, cafe, bar in Netherlands..."
+                    className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white pr-10"
+                  />
+                  {osmLoading && (
+                    <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-blue-500 animate-spin" />
+                  )}
+                </div>
+                
+                {/* Search Results */}
+                {showOsmResults && osmResults.length > 0 && (
+                  <div className="mt-2 border border-blue-200 rounded-md bg-white max-h-48 overflow-y-auto">
+                    {osmResults.map((result) => (
+                      <button
+                        key={result.place_id}
+                        type="button"
+                        onClick={() => selectOsmResult(result)}
+                        className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-blue-100 last:border-b-0"
+                      >
+                        <div className="text-sm font-medium text-gray-900">
+                          {result.address?.name || result.address?.amenity || result.display_name.split(',')[0]}
+                        </div>
+                        <div className="text-xs text-gray-500 truncate">
+                          {result.display_name}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                
+                {showOsmResults && osmResults.length === 0 && !osmLoading && osmSearch.length >= 3 && (
+                  <div className="mt-2 text-sm text-gray-500">
+                    No results found. Try a different search term.
+                  </div>
+                )}
+                
+                <p className="text-xs text-blue-600 mt-2">
+                  Type at least 3 characters to search. Select a result to auto-fill fields with coordinates.
+                </p>
+              </div>
+
+              <div className="border-t border-gray-200 pt-4">
+                <p className="text-sm text-gray-500 mb-3">Or fill in manually:</p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="relative">
+                  <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    required
+                    value={formData.location_name}
+                    onChange={(e) => setFormData({ ...formData, location_name: e.target.value })}
+                    placeholder="Location name *"
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    required
+                    value={formData.location_city}
+                    onChange={(e) => setFormData({ ...formData, location_city: e.target.value })}
+                    placeholder="City *"
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                
+                <div className="relative">
+                  <Navigation className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={formData.location_address}
+                    onChange={(e) => setFormData({ ...formData, location_address: e.target.value })}
+                    placeholder="Address (optional)"
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                
+                <div className="relative">
+                  <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="url"
+                    value={formData.location_website}
+                    onChange={(e) => setFormData({ ...formData, location_website: e.target.value })}
+                    placeholder="Website (optional)"
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
             </div>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+            <Monitor className="h-4 w-4" />
             POS System *
           </label>
-          <input
-            type="text"
-            required
-            value={formData.pos_system}
-            onChange={(e) => setFormData({ ...formData, pos_system: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 mb-3">
+            {POS_SYSTEMS.map((pos) => (
+              <button
+                key={pos.id}
+                type="button"
+                onClick={() => handlePosSelect(pos.id)}
+                className={`px-3 py-2 text-sm rounded-lg border-2 transition-all ${
+                  selectedPosId === pos.id
+                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700 font-medium'
+                    : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {pos.name}
+              </button>
+            ))}
+          </div>
+          
+          {/* Custom POS input when "Overig" is selected */}
+          {selectedPosId === 'other' && (
+            <div className="mt-3">
+              <input
+                type="text"
+                required
+                value={customPosName}
+                onChange={(e) => handleCustomPosChange(e.target.value)}
+                placeholder="Vul de naam van het POS systeem in..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          )}
+          
+          {/* Show selected POS */}
+          {formData.pos_system && (
+            <div className="mt-2 text-sm text-gray-600">
+              Geselecteerd: <span className="font-medium text-indigo-600">{formData.pos_system}</span>
+            </div>
+          )}
         </div>
 
         <div>

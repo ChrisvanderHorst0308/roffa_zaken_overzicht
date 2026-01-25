@@ -6,6 +6,11 @@ import { supabase } from '@/lib/supabaseClient'
 import { VisitWithRelations, Project, VisitStatus } from '@/types'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Plus, Search, Calendar, MapPin, Briefcase, TrendingUp, FileText } from 'lucide-react'
 
 export default function DashboardPage() {
   const [visits, setVisits] = useState<VisitWithRelations[]>([])
@@ -109,89 +114,169 @@ export default function DashboardPage() {
     return matchesSearch && matchesProject && matchesStatus
   })
 
+  const stats = {
+    totalVisits: visits.length,
+    interested: visits.filter(v => v.status === 'interested').length,
+    demoPlanned: visits.filter(v => v.status === 'demo_planned').length,
+    notInterested: visits.filter(v => v.status === 'not_interested').length,
+  }
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'interested':
+        return 'success'
+      case 'demo_planned':
+        return 'info'
+      case 'not_interested':
+        return 'destructive'
+      default:
+        return 'secondary'
+    }
+  }
+
   if (loading) {
-    return <div className="text-center py-8">Loading...</div>
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">
+            Overview of your visits and projects
+          </p>
+        </div>
         <div className="flex gap-3">
-          <Link
-            href="/onboarding"
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
-          >
-            Start onboarding
-          </Link>
-          <Link
-            href="/visits/new"
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            New Visit
-          </Link>
+          <Button asChild variant="outline" className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700">
+            <Link href="/onboarding">
+              Start onboarding
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/visits/new">
+              <Plus className="mr-2 h-4 w-4" />
+              New Visit
+            </Link>
+          </Button>
         </div>
       </div>
 
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Visits</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalVisits}</div>
+            <p className="text-xs text-muted-foreground">All time visits</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Interested</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{stats.interested}</div>
+            <p className="text-xs text-muted-foreground">Potential leads</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Demo Planned</CardTitle>
+            <Calendar className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{stats.demoPlanned}</div>
+            <p className="text-xs text-muted-foreground">Scheduled demos</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Not Interested</CardTitle>
+            <TrendingUp className="h-4 w-4 text-red-600 rotate-180" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{stats.notInterested}</div>
+            <p className="text-xs text-muted-foreground">Declined</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Projects */}
       {projects.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            {isAdmin ? 'All Projects' : 'My Projects'}
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {projects.map(project => (
-              <div
-                key={project.id}
-                className="border border-gray-200 rounded-lg p-4 hover:border-indigo-300 hover:shadow-md transition-all"
-              >
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">{project.name}</h3>
-                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                    project.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {project.active ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-                <div className="mt-2 text-sm text-gray-600">
-                  {visits.filter(v => v.project_id === project.id).length} visit(s)
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>{isAdmin ? 'All Projects' : 'My Projects'}</CardTitle>
+            <CardDescription>Projects you&apos;re working on</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {projects.map(project => (
+                <Card
+                  key={project.id}
+                  className="hover:shadow-md transition-shadow cursor-pointer border-2 hover:border-primary/50"
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">{project.name}</CardTitle>
+                      <Badge variant={project.active ? 'success' : 'secondary'}>
+                        {project.active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Briefcase className="h-4 w-4" />
+                      <span>{visits.filter(v => v.project_id === project.id).length} visit(s)</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {projects.length === 0 && !isAdmin && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-          <p className="text-yellow-800">
-            You are not assigned to any projects yet. Contact an admin to get assigned to a project.
-          </p>
-        </div>
+        <Card className="border-yellow-200 bg-yellow-50">
+          <CardContent className="pt-6">
+            <p className="text-yellow-800">
+              You are not assigned to any projects yet. Contact an admin to get assigned to a project.
+            </p>
+          </CardContent>
+        </Card>
       )}
 
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Visits</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Search
-            </label>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search locations..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Project
-            </label>
+      {/* Visits */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Visits</CardTitle>
+          <CardDescription>Manage and track your visits</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search locations..."
+                className="pl-10"
+              />
+            </div>
             <select
               value={selectedProject}
               onChange={(e) => setSelectedProject(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               <option value="all">All Projects</option>
               {projects.map(project => (
@@ -200,15 +285,10 @@ export default function DashboardPage() {
                 </option>
               ))}
             </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status
-            </label>
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               <option value="all">All Statuses</option>
               <option value="visited">Visited</option>
@@ -217,123 +297,110 @@ export default function DashboardPage() {
               <option value="not_interested">Not Interested</option>
             </select>
           </div>
-        </div>
 
-        <div className="hidden md:block overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Location
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Project
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  POS System
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredVisits.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                    No visits found
-                  </td>
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Date</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Location</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Project</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Status</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">POS System</th>
                 </tr>
-              ) : (
-                filteredVisits.map(visit => (
-                  <tr
-                    key={visit.id}
-                    className="hover:bg-gray-50 cursor-pointer"
-                    onClick={() => router.push(`/visits/${visit.id}`)}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(visit.visit_date).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {visit.location.name}, {visit.location.city}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {visit.project.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        visit.status === 'interested' ? 'bg-green-100 text-green-800' :
-                        visit.status === 'demo_planned' ? 'bg-blue-100 text-blue-800' :
-                        visit.status === 'not_interested' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {visit.status.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {visit.pos_system}
+              </thead>
+              <tbody>
+                {filteredVisits.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="h-24 text-center text-muted-foreground">
+                      No visits found
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  filteredVisits.map(visit => (
+                    <tr
+                      key={visit.id}
+                      className="border-b hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => router.push(`/visits/${visit.id}`)}
+                    >
+                      <td className="p-4 align-middle">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">{new Date(visit.visit_date).toLocaleDateString()}</span>
+                        </div>
+                      </td>
+                      <td className="p-4 align-middle">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium">{visit.location.name}, {visit.location.city}</span>
+                        </div>
+                      </td>
+                      <td className="p-4 align-middle">
+                        <div className="flex items-center gap-2">
+                          <Briefcase className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">{visit.project.name}</span>
+                        </div>
+                      </td>
+                      <td className="p-4 align-middle">
+                        <Badge variant={getStatusBadgeVariant(visit.status)}>
+                          {visit.status.replace('_', ' ')}
+                        </Badge>
+                      </td>
+                      <td className="p-4 align-middle text-sm">{visit.pos_system}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-        <div className="md:hidden space-y-4">
-          {filteredVisits.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No visits found
-            </div>
-          ) : (
-            filteredVisits.map(visit => (
-              <div
-                key={visit.id}
-                onClick={() => router.push(`/visits/${visit.id}`)}
-                className="bg-white border border-gray-200 rounded-lg p-4 cursor-pointer hover:border-indigo-300 hover:shadow-md transition-all"
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex-1">
-                    <h3 className="text-base font-semibold text-gray-900">
-                      {visit.location.name}
-                    </h3>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {visit.location.city}
-                    </p>
-                  </div>
-                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                    visit.status === 'interested' ? 'bg-green-100 text-green-800' :
-                    visit.status === 'demo_planned' ? 'bg-blue-100 text-blue-800' :
-                    visit.status === 'not_interested' ? 'bg-red-100 text-red-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {visit.status.replace('_', ' ')}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 mt-3 text-sm">
-                  <div>
-                    <span className="text-gray-500">Date:</span>
-                    <span className="ml-2 text-gray-900">
-                      {new Date(visit.visit_date).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Project:</span>
-                    <span className="ml-2 text-gray-900">{visit.project.name}</span>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-gray-500">POS:</span>
-                    <span className="ml-2 text-gray-900">{visit.pos_system}</span>
-                  </div>
-                </div>
+          <div className="md:hidden space-y-4">
+            {filteredVisits.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No visits found
               </div>
-            ))
-          )}
-        </div>
-      </div>
+            ) : (
+              filteredVisits.map(visit => (
+                <Card
+                  key={visit.id}
+                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => router.push(`/visits/${visit.id}`)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <CardTitle className="text-base">{visit.location.name}</CardTitle>
+                        <CardDescription className="flex items-center gap-1 mt-1">
+                          <MapPin className="h-3 w-3" />
+                          {visit.location.city}
+                        </CardDescription>
+                      </div>
+                      <Badge variant={getStatusBadgeVariant(visit.status)}>
+                        {visit.status.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Calendar className="h-4 w-4" />
+                        {new Date(visit.visit_date).toLocaleDateString()}
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Briefcase className="h-4 w-4" />
+                        {visit.project.name}
+                      </div>
+                      <div className="col-span-2 text-muted-foreground">
+                        POS: {visit.pos_system}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

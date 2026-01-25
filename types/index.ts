@@ -30,6 +30,8 @@ export interface Location {
   address: string | null
   website: string | null
   pos_system: string | null
+  latitude: number | null
+  longitude: number | null
   created_at: string
 }
 

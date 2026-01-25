@@ -47,7 +47,18 @@ Create a `.env.local` file in the root directory:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
 ```
+
+### Google Maps API Key (Optional)
+
+To enable the map view of locations:
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Enable the "Maps JavaScript API" and "Places API"
+4. Create an API key under "Credentials"
+5. Add the API key to your `.env.local` file
 
 ### 4. Run Database Migrations
 
