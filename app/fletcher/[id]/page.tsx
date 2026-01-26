@@ -142,6 +142,27 @@ export default function FletcherApkDetailPage() {
     }
   }
 
+  // Save all (open questions + meeting notes)
+  const saveAll = async () => {
+    if (!run) return
+    setSaving(true)
+    const { error } = await supabase
+      .from('fletcher_apk_runs')
+      .update({
+        open_q1_knelpunten: q1,
+        open_q2_meerwaarde: q2,
+        meeting_notes: meetingNotes,
+      })
+      .eq('id', run.id)
+
+    if (error) {
+      toast.error('Opslaan mislukt')
+    } else {
+      toast.success('Alles opgeslagen!')
+    }
+    setSaving(false)
+  }
+
   // Save open questions
   const saveOpenQuestions = async () => {
     if (!run) return
@@ -304,7 +325,16 @@ export default function FletcherApkDetailPage() {
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button 
+            onClick={saveAll} 
+            disabled={saving}
+            size="lg"
+            className="bg-orange-600 hover:bg-orange-700"
+          >
+            <Save className="h-5 w-5 mr-2" />
+            {saving ? 'Opslaan...' : 'Alles Opslaan'}
+          </Button>
           <Button variant="outline" onClick={() => setShowMeetingNotes(true)}>
             <MessageSquare className="h-4 w-4 mr-2" />
             Meeting Notes
@@ -499,6 +529,19 @@ export default function FletcherApkDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Floating Save Button */}
+      <div className="fixed bottom-6 right-6 z-40">
+        <Button 
+          onClick={saveAll} 
+          disabled={saving}
+          size="lg"
+          className="bg-orange-600 hover:bg-orange-700 shadow-lg h-14 px-6 text-lg"
+        >
+          <Save className="h-6 w-6 mr-2" />
+          {saving ? 'Opslaan...' : 'Alles Opslaan'}
+        </Button>
+      </div>
 
       {/* Meeting Notes Modal */}
       {showMeetingNotes && (
