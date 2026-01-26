@@ -39,7 +39,7 @@ export default function LocationDetailPage() {
         .eq('id', user.id)
         .single()
 
-      const isAdmin = profile?.role === 'admin' || profile?.role === 'reichskanzlier'
+      const isAdmin = profile?.role === 'admin' || profile?.role === 'reichskanzlier' || profile?.role === 'fletcher_admin'
 
       let projectIds: string[] = []
       

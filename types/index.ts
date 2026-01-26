@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'recruiter' | 'reichskanzlier'
+export type UserRole = 'admin' | 'recruiter' | 'reichskanzlier' | 'fletcher_admin'
 
 export interface Profile {
   id: string
@@ -58,4 +58,60 @@ export interface VisitWithRelations extends Visit {
   location: Location
   project: Project
   recruiter: Profile
+}
+
+/* ============================================
+   Fletcher APK v2 Types
+   ============================================ */
+
+export type FletcherApkRunStatus = 'draft' | 'submitted'
+
+export interface FletcherApkRun {
+  id: string
+  location_id: string
+  created_by: string
+  status: FletcherApkRunStatus
+  open_q1_knelpunten: string | null
+  open_q2_meerwaarde: string | null
+  meeting_notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface FletcherApkRunWithRelations extends FletcherApkRun {
+  location: Location
+  creator: Profile
+  check_items?: FletcherApkCheckItem[]
+  todos?: FletcherApkTodo[]
+}
+
+export interface FletcherApkCheckItem {
+  id: string
+  run_id: string
+  item_key: string
+  section: string
+  label: string
+  checked: boolean
+  updated_at: string
+}
+
+export interface FletcherApkTodo {
+  id: string
+  run_id: string
+  text: string
+  done: boolean
+  created_at: string
+  updated_at: string
+}
+
+/* Checklist definition structure */
+export interface FletcherChecklistSection {
+  key: string
+  title: string
+  items: FletcherChecklistItem[]
+}
+
+export interface FletcherChecklistItem {
+  key: string
+  label: string
 }

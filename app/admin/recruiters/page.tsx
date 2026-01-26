@@ -29,7 +29,7 @@ export default function AdminRecruitersPage() {
         .eq('id', user.id)
         .single()
 
-      if (!profile || (profile.role !== 'admin' && profile.role !== 'reichskanzlier')) {
+      if (!profile || (profile.role !== 'admin' && profile.role !== 'reichskanzlier' && profile.role !== 'fletcher_admin')) {
         router.push('/dashboard')
         return
       }
@@ -119,6 +119,7 @@ export default function AdminRecruitersPage() {
                     <option value="recruiter">Recruiter</option>
                     <option value="admin">Admin</option>
                     <option value="reichskanzlier">Reichskanzlier</option>
+                    <option value="fletcher_admin">Fletcher Admin</option>
                   </select>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -168,6 +169,7 @@ export default function AdminRecruitersPage() {
                       <option value="recruiter">Recruiter</option>
                       <option value="admin">Admin</option>
                       <option value="reichskanzlier">Reichskanzlier</option>
+                      <option value="fletcher_admin">Fletcher Admin</option>
                     </select>
                   </div>
                 </div>

@@ -58,7 +58,7 @@ export default function CheckAdminPage() {
           )}
         </div>
 
-        {dbProfile && dbProfile.role !== 'admin' && dbProfile.role !== 'reichskanzlier' && (
+        {dbProfile && dbProfile.role !== 'admin' && dbProfile.role !== 'reichskanzlier' && dbProfile.role !== 'fletcher_admin' && (
           <div className="bg-yellow-50 border border-yellow-200 rounded p-4">
             <p className="font-semibold text-yellow-800">⚠️ You are not an admin!</p>
             <p className="text-sm text-yellow-700 mt-2">
@@ -72,7 +72,7 @@ WHERE id = '${user?.id}';`}
           </div>
         )}
 
-        {(dbProfile?.role === 'admin' || dbProfile?.role === 'reichskanzlier') && (
+        {(dbProfile?.role === 'admin' || dbProfile?.role === 'reichskanzlier' || dbProfile?.role === 'fletcher_admin') && (
           <div className="bg-green-50 border border-green-200 rounded p-4">
             <p className="font-semibold text-green-800">✓ You have admin access!</p>
             <p className="text-sm text-green-700 mt-2">

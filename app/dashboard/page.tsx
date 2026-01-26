@@ -40,7 +40,7 @@ export default function DashboardPage() {
         .eq('id', user.id)
         .single()
 
-      const userIsAdmin = profile?.role === 'admin' || profile?.role === 'reichskanzlier'
+      const userIsAdmin = profile?.role === 'admin' || profile?.role === 'reichskanzlier' || profile?.role === 'fletcher_admin'
       setIsAdmin(userIsAdmin)
 
       if (userIsAdmin) {

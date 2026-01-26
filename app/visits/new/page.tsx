@@ -200,7 +200,7 @@ export default function NewVisitPage() {
         .eq('id', user.id)
         .single()
 
-      if (profile?.role === 'admin' || profile?.role === 'reichskanzlier') {
+      if (profile?.role === 'admin' || profile?.role === 'reichskanzlier' || profile?.role === 'fletcher_admin') {
         const { data: projectsData } = await supabase
           .from('projects')
           .select('*')

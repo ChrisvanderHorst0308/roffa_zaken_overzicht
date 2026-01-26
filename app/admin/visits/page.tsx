@@ -33,7 +33,7 @@ export default function AdminVisitsPage() {
         .eq('id', user.id)
         .single()
 
-      if (!profile || (profile.role !== 'admin' && profile.role !== 'reichskanzlier')) {
+      if (!profile || (profile.role !== 'admin' && profile.role !== 'reichskanzlier' && profile.role !== 'fletcher_admin')) {
         router.push('/dashboard')
         return
       }

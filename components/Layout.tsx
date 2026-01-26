@@ -38,7 +38,8 @@ export default function Layout({ children }: LayoutProps) {
     )
   }
 
-  const isAdmin = profile?.role === 'admin' || profile?.role === 'reichskanzlier'
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'reichskanzlier' || profile?.role === 'fletcher_admin'
+  const hasFletcherAccess = profile?.role === 'admin' || profile?.role === 'fletcher_admin'
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -80,6 +81,18 @@ export default function Layout({ children }: LayoutProps) {
                 >
                   Map
                 </Link>
+                {hasFletcherAccess && (
+                  <Link
+                    href="/fletcher"
+                    className={`px-3 py-2 rounded-md text-sm font-medium ${
+                      pathname === '/fletcher'
+                        ? 'bg-orange-100 text-orange-900'
+                        : 'text-orange-600 hover:bg-orange-50'
+                    }`}
+                  >
+                    Fletcher
+                  </Link>
+                )}
                 {isAdmin && (
                   <>
                     <Link
@@ -214,6 +227,19 @@ export default function Layout({ children }: LayoutProps) {
                 >
                   Map
                 </Link>
+                {hasFletcherAccess && (
+                  <Link
+                    href="/fletcher"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`block px-3 py-2 rounded-md text-base font-medium ${
+                      pathname === '/fletcher'
+                        ? 'bg-orange-100 text-orange-900'
+                        : 'text-orange-600 hover:bg-orange-50'
+                    }`}
+                  >
+                    Fletcher
+                  </Link>
+                )}
                 {isAdmin && (
                   <>
                     <Link

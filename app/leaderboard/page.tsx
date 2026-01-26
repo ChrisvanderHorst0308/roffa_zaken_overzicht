@@ -39,7 +39,7 @@ export default function LeaderboardPage() {
         .eq('id', user.id)
         .single()
 
-      const isAdmin = profile?.role === 'admin' || profile?.role === 'reichskanzlier'
+      const isAdmin = profile?.role === 'admin' || profile?.role === 'reichskanzlier' || profile?.role === 'fletcher_admin'
 
       if (!isAdmin) {
         toast.error('Access denied. Admin only.')
