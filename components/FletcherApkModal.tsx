@@ -230,7 +230,7 @@ export default function FletcherApkModal({ isOpen, onClose, onSuccess, locations
                 <ul className="text-sm text-gray-600 space-y-1">
                   <li>• Een nieuwe APK check wordt aangemaakt</li>
                   <li>• Je kunt de checklist items afvinken</li>
-                  <li>• Je kunt meeting notes en to-do's toevoegen</li>
+                  <li>• Je kunt meeting notes en to-do&apos;s toevoegen</li>
                   <li>• Voortgang wordt automatisch opgeslagen</li>
                 </ul>
               </div>

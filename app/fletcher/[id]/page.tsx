@@ -475,7 +475,7 @@ export default function FletcherApkDetailPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <CheckSquare className="h-5 w-5 text-green-600" />
-            To Do's
+            To Do&apos;s
           </CardTitle>
           <CardDescription>
             {todos.filter(t => t.done).length} van {todos.length} afgerond

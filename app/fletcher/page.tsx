@@ -256,7 +256,7 @@ export default function FletcherPage() {
                 {filteredRuns.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="h-24 text-center text-muted-foreground">
-                      Nog geen APK runs. Klik op "Start Fletcher APK" om te beginnen.
+                      Nog geen APK runs. Klik op &quot;Start Fletcher APK&quot; om te beginnen.
                     </td>
                   </tr>
                 ) : (
@@ -335,7 +335,7 @@ export default function FletcherPage() {
           <div className="md:hidden space-y-4">
             {filteredRuns.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                Nog geen APK runs. Klik op "Start Fletcher APK" om te beginnen.
+                Nog geen APK runs. Klik op &quot;Start Fletcher APK&quot; om te beginnen.
               </div>
             ) : (
               filteredRuns.map(run => {
