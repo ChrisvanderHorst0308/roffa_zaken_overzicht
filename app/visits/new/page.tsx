@@ -749,7 +749,9 @@ export default function NewVisitPage() {
           >
             <option value="visited">Visited</option>
             <option value="interested">Interested</option>
+            <option value="potential">Potential</option>
             <option value="demo_planned">Demo Planned</option>
+            <option value="already_client">Already Client</option>
             <option value="not_interested">Not Interested</option>
           </select>
         </div>

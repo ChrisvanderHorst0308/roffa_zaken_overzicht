@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { Location, Visit } from '@/types'
 import toast from 'react-hot-toast'
@@ -12,6 +13,7 @@ interface LocationWithVisitInfo extends Location {
 }
 
 export default function LocationsPage() {
+  const router = useRouter()
   const [locations, setLocations] = useState<LocationWithVisitInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -105,12 +107,13 @@ export default function LocationsPage() {
             filteredLocations.map(location => (
               <div
                 key={location.id}
-                className={`border rounded-lg p-4 ${
+                onClick={() => router.push(`/locations/${location.id}`)}
+                className={`border rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow ${
                   location.recentVisitWarning
-                    ? 'border-yellow-400 bg-yellow-50'
+                    ? 'border-yellow-400 bg-yellow-50 hover:bg-yellow-100'
                     : location.visitedByMe
-                    ? 'border-green-200 bg-green-50'
-                    : 'border-gray-200'
+                    ? 'border-green-200 bg-green-50 hover:bg-green-100'
+                    : 'border-gray-200 hover:bg-gray-50'
                 }`}
               >
                 <div className="flex justify-between items-start">

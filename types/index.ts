@@ -35,7 +35,7 @@ export interface Location {
   created_at: string
 }
 
-export type VisitStatus = 'visited' | 'interested' | 'demo_planned' | 'not_interested'
+export type VisitStatus = 'visited' | 'interested' | 'demo_planned' | 'not_interested' | 'potential' | 'already_client'
 
 export interface Visit {
   id: string

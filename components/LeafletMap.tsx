@@ -6,6 +6,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { Location } from '@/types'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 // Fix for default marker icons in Leaflet with Next.js
 const DefaultIcon = L.icon({
@@ -54,6 +55,7 @@ interface LeafletMapProps {
 
 export function LeafletMap({ locations }: LeafletMapProps) {
   const [isMounted, setIsMounted] = useState(false)
+  const router = useRouter()
 
   useEffect(() => {
     setIsMounted(true)
@@ -116,6 +118,11 @@ export function LeafletMap({ locations }: LeafletMapProps) {
             key={location.id}
             position={[location.latitude!, location.longitude!]}
             icon={getMarkerIcon(location)}
+            eventHandlers={{
+              click: () => {
+                router.push(`/locations/${location.id}`)
+              }
+            }}
           >
             <Popup>
               <div className="p-1 min-w-[180px]">
@@ -139,6 +146,8 @@ export function LeafletMap({ locations }: LeafletMapProps) {
                     location.lastVisitStatus === 'interested' ? 'bg-green-100 text-green-800' :
                     location.lastVisitStatus === 'demo_planned' ? 'bg-blue-100 text-blue-800' :
                     location.lastVisitStatus === 'not_interested' ? 'bg-gray-100 text-gray-800' :
+                    location.lastVisitStatus === 'potential' ? 'bg-orange-100 text-orange-800' :
+                    location.lastVisitStatus === 'already_client' ? 'bg-purple-100 text-purple-800' :
                     'bg-yellow-100 text-yellow-800'
                   }`}>
                     {location.lastVisitStatus.replace('_', ' ')}
@@ -146,7 +155,7 @@ export function LeafletMap({ locations }: LeafletMapProps) {
                 )}
                 <div className="mt-3">
                   <Link
-                    href={`/locations?search=${encodeURIComponent(location.name)}`}
+                    href={`/locations/${location.id}`}
                     className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
                   >
                     View details
