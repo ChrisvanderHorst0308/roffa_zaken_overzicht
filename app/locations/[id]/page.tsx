@@ -26,6 +26,33 @@ export default function LocationDetailPage() {
 
   const loadLocationData = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
+      }
+
+      // Check user role
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      const isAdmin = profile?.role === 'admin' || profile?.role === 'reichskanzlier'
+
+      let projectIds: string[] = []
+      
+      if (!isAdmin) {
+        // Get assigned projects for recruiter
+        const { data: assignments } = await supabase
+          .from('recruiter_projects')
+          .select('project_id')
+          .eq('recruiter_id', user.id)
+        
+        projectIds = (assignments || []).map(a => a.project_id)
+      }
+
       // Load location
       const { data: locationData, error: locationError } = await supabase
         .from('locations')
@@ -36,8 +63,8 @@ export default function LocationDetailPage() {
       if (locationError) throw locationError
       setLocation(locationData)
 
-      // Load visits for this location
-      const { data: visitsData, error: visitsError } = await supabase
+      // Load visits for this location (filtered by project for recruiters)
+      let visitsQuery = supabase
         .from('visits')
         .select(`
           *,
@@ -48,6 +75,15 @@ export default function LocationDetailPage() {
         .eq('location_id', params.id)
         .order('visit_date', { ascending: false })
 
+      if (!isAdmin && projectIds.length > 0) {
+        visitsQuery = visitsQuery.in('project_id', projectIds)
+      } else if (!isAdmin && projectIds.length === 0) {
+        setVisits([])
+        setLoading(false)
+        return
+      }
+
+      const { data: visitsData, error: visitsError } = await visitsQuery
       if (visitsError) throw visitsError
       setVisits(visitsData || [])
     } catch (error: any) {

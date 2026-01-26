@@ -45,23 +45,74 @@ export default function MapPage() {
         return
       }
 
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
+      }
+
+      // Check user role
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      const isAdmin = profile?.role === 'admin' || profile?.role === 'reichskanzlier'
+
+      let projectIds: string[] = []
+      
+      if (!isAdmin) {
+        // Get assigned projects for recruiter
+        const { data: assignments } = await supabase
+          .from('recruiter_projects')
+          .select('project_id')
+          .eq('recruiter_id', user.id)
+        
+        projectIds = (assignments || []).map(a => a.project_id)
+        
+        if (projectIds.length === 0) {
+          setLocations([])
+          setLoading(false)
+          return
+        }
+      }
+
+      // Get visits (filtered by project for recruiters, all for admins)
+      let visitsQuery = supabase
+        .from('visits')
+        .select('location_id, status, visit_date, project_id')
+        .order('visit_date', { ascending: false })
+
+      if (!isAdmin && projectIds.length > 0) {
+        visitsQuery = visitsQuery.in('project_id', projectIds)
+      }
+
+      const { data: visitsData, error: visitsError } = await visitsQuery
+      if (visitsError) throw visitsError
+
+      // Get unique location IDs from visits (for recruiters, only from their projects)
+      const visitedLocationIds = [...new Set((visitsData || []).map(v => v.location_id))]
+
       // Get locations with coordinates
-      const { data: locationsData, error: locationsError } = await supabase
+      let locationsQuery = supabase
         .from('locations')
         .select('*')
         .not('latitude', 'is', null)
         .not('longitude', 'is', null)
         .order('name')
 
+      // For recruiters, only show locations that have visits from their projects
+      if (!isAdmin && visitedLocationIds.length > 0) {
+        locationsQuery = locationsQuery.in('id', visitedLocationIds)
+      } else if (!isAdmin && visitedLocationIds.length === 0) {
+        setLocations([])
+        setLoading(false)
+        return
+      }
+
+      const { data: locationsData, error: locationsError } = await locationsQuery
       if (locationsError) throw locationsError
-
-      // Get visit info for each location
-      const { data: visitsData, error: visitsError } = await supabase
-        .from('visits')
-        .select('location_id, status, visit_date')
-        .order('visit_date', { ascending: false })
-
-      if (visitsError) throw visitsError
 
       // Merge visit info with locations
       const locationsWithVisits: LocationWithVisitInfo[] = (locationsData || []).map(location => {

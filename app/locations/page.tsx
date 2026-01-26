@@ -25,21 +25,70 @@ export default function LocationsPage() {
   const loadLocations = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        router.push('/login')
+        return
+      }
 
-      const { data: locationsData, error: locationsError } = await supabase
-        .from('locations')
-        .select('*')
-        .order('name')
+      // Check user role
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
 
-      if (locationsError) throw locationsError
+      const isAdmin = profile?.role === 'admin' || profile?.role === 'reichskanzlier'
 
-      const { data: allVisits, error: visitsError } = await supabase
+      let projectIds: string[] = []
+      
+      if (!isAdmin) {
+        // Get assigned projects for recruiter
+        const { data: assignments } = await supabase
+          .from('recruiter_projects')
+          .select('project_id')
+          .eq('recruiter_id', user.id)
+        
+        projectIds = (assignments || []).map(a => a.project_id)
+        
+        if (projectIds.length === 0) {
+          setLocations([])
+          setLoading(false)
+          return
+        }
+      }
+
+      // Get visits (filtered by project for recruiters)
+      let visitsQuery = supabase
         .from('visits')
         .select('*')
         .order('visit_date', { ascending: false })
 
+      if (!isAdmin && projectIds.length > 0) {
+        visitsQuery = visitsQuery.in('project_id', projectIds)
+      }
+
+      const { data: allVisits, error: visitsError } = await visitsQuery
       if (visitsError) throw visitsError
+
+      // Get unique location IDs from visits
+      const visitedLocationIds = [...new Set((allVisits || []).map(v => v.location_id))]
+
+      // Get locations (for recruiters, only locations with visits from their projects)
+      let locationsQuery = supabase
+        .from('locations')
+        .select('*')
+        .order('name')
+
+      if (!isAdmin && visitedLocationIds.length > 0) {
+        locationsQuery = locationsQuery.in('id', visitedLocationIds)
+      } else if (!isAdmin && visitedLocationIds.length === 0) {
+        setLocations([])
+        setLoading(false)
+        return
+      }
+
+      const { data: locationsData, error: locationsError } = await locationsQuery
+      if (locationsError) throw locationsError
 
       const thirtyDaysAgo = new Date()
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
