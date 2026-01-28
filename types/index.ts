@@ -73,6 +73,7 @@ export interface FletcherApkRun {
   status: FletcherApkRunStatus
   open_q1_knelpunten: string | null
   open_q2_meerwaarde: string | null
+  errors: string | null
   meeting_notes: string | null
   created_at: string
   updated_at: string
@@ -83,6 +84,7 @@ export interface FletcherApkRunWithRelations extends FletcherApkRun {
   creator: Profile
   check_items?: FletcherApkCheckItem[]
   todos?: FletcherApkTodo[]
+  apk_errors?: FletcherApkError[]
 }
 
 export interface FletcherApkCheckItem {
@@ -100,6 +102,15 @@ export interface FletcherApkTodo {
   run_id: string
   text: string
   done: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface FletcherApkError {
+  id: string
+  run_id: string
+  text: string
+  resolved: boolean
   created_at: string
   updated_at: string
 }

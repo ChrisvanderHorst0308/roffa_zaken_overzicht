@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS public.fletcher_apk_runs (
   open_q1_knelpunten TEXT,
   open_q2_meerwaarde TEXT,
   
+  /* Errors section */
+  errors TEXT,
+  
   /* Meeting notes */
   meeting_notes TEXT,
   

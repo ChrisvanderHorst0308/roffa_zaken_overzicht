@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import { Location, FletcherApkRunWithRelations } from '@/types'
+import { Location, FletcherApkRunWithRelations, FletcherApkError } from '@/types'
 import { getTotalChecklistItems } from '@/lib/fletcherChecklist'
 import toast from 'react-hot-toast'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,12 +21,18 @@ import {
   ClipboardCheck,
   Eye,
   CheckCircle2,
-  Clock
+  Clock,
+  AlertTriangle
 } from 'lucide-react'
 import FletcherApkModal from '@/components/FletcherApkModal'
 
+interface ErrorWithRun extends FletcherApkError {
+  run?: FletcherApkRunWithRelations
+}
+
 export default function FletcherPage() {
   const [apkRuns, setApkRuns] = useState<FletcherApkRunWithRelations[]>([])
+  const [allErrors, setAllErrors] = useState<ErrorWithRun[]>([])
   const [locations, setLocations] = useState<Location[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -98,6 +104,23 @@ export default function FletcherPage() {
             })
             setCheckCounts(counts)
           }
+
+          // Load all errors
+          const { data: errorsData } = await supabase
+            .from('fletcher_apk_errors')
+            .select('*')
+            .in('run_id', runIds)
+            .eq('resolved', false)
+            .order('created_at', { ascending: false })
+
+          if (errorsData && runsData) {
+            // Link errors to their runs
+            const errorsWithRuns = errorsData.map(err => ({
+              ...err,
+              run: runsData.find(r => r.id === err.run_id)
+            }))
+            setAllErrors(errorsWithRuns)
+          }
         }
       }
 
@@ -147,6 +170,7 @@ export default function FletcherPage() {
       weekAgo.setDate(weekAgo.getDate() - 7)
       return new Date(r.created_at) >= weekAgo
     }).length,
+    openErrors: allErrors.length,
   }
 
   if (loading) {
@@ -177,7 +201,7 @@ export default function FletcherPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Totaal APK Runs</CardTitle>
@@ -207,6 +231,15 @@ export default function FletcherPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Open Errors</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{stats.openErrors}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Deze Week</CardTitle>
             <Calendar className="h-4 w-4 text-blue-600" />
           </CardHeader>
@@ -215,6 +248,48 @@ export default function FletcherPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Errors Overview */}
+      {allErrors.length > 0 && (
+        <Card className="border-red-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Open Errors ({allErrors.length})
+            </CardTitle>
+            <CardDescription>
+              Alle openstaande errors en problemen uit APK runs
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {allErrors.map(err => (
+              <div
+                key={err.id}
+                className="p-4 border border-red-100 rounded-lg bg-red-50/50 cursor-pointer hover:bg-red-100/50 transition-colors"
+                onClick={() => router.push(`/fletcher/${err.run_id}`)}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-red-600" />
+                    <span className="font-medium">{err.run?.location?.name}</span>
+                    <span className="text-sm text-muted-foreground">({err.run?.location?.city})</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(err.created_at).toLocaleDateString('nl-NL', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+                <p className="text-sm text-red-800">{err.text}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* APK Runs List */}
       <Card>

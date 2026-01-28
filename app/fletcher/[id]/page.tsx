@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import { FletcherApkRunWithRelations, FletcherApkCheckItem, FletcherApkTodo } from '@/types'
+import { FletcherApkRunWithRelations, FletcherApkCheckItem, FletcherApkTodo, FletcherApkError } from '@/types'
 import { FLETCHER_CHECKLIST, getTotalChecklistItems } from '@/lib/fletcherChecklist'
 import toast from 'react-hot-toast'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,7 +25,8 @@ import {
   Trash2,
   Save,
   MessageSquare,
-  X
+  X,
+  AlertTriangle
 } from 'lucide-react'
 
 export default function FletcherApkDetailPage() {
@@ -34,6 +35,7 @@ export default function FletcherApkDetailPage() {
   const [run, setRun] = useState<FletcherApkRunWithRelations | null>(null)
   const [checkItems, setCheckItems] = useState<FletcherApkCheckItem[]>([])
   const [todos, setTodos] = useState<FletcherApkTodo[]>([])
+  const [apkErrors, setApkErrors] = useState<FletcherApkError[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   
@@ -47,6 +49,9 @@ export default function FletcherApkDetailPage() {
   
   // New todo state
   const [newTodoText, setNewTodoText] = useState('')
+  
+  // New error state
+  const [newErrorText, setNewErrorText] = useState('')
 
   const totalItems = getTotalChecklistItems()
 
@@ -111,6 +116,15 @@ export default function FletcherApkDetailPage() {
 
       setTodos(todosData || [])
 
+      // Load errors
+      const { data: errorsData } = await supabase
+        .from('fletcher_apk_errors')
+        .select('*')
+        .eq('run_id', params.id)
+        .order('created_at', { ascending: false })
+
+      setApkErrors(errorsData || [])
+
     } catch (error: any) {
       toast.error(error.message || 'Failed to load data')
     } finally {
@@ -161,6 +175,70 @@ export default function FletcherApkDetailPage() {
       toast.success('Alles opgeslagen!')
     }
     setSaving(false)
+  }
+
+  // Add new error
+  const addError = async () => {
+    if (!run || !newErrorText.trim()) return
+    
+    const { data, error } = await supabase
+      .from('fletcher_apk_errors')
+      .insert({
+        run_id: run.id,
+        text: newErrorText.trim(),
+      })
+      .select()
+      .single()
+
+    if (error) {
+      toast.error('Error toevoegen mislukt')
+    } else {
+      setApkErrors([data, ...apkErrors])
+      setNewErrorText('')
+      toast.success('Error toegevoegd')
+    }
+  }
+
+  // Toggle error resolved
+  const toggleErrorResolved = async (errorId: string, currentResolved: boolean) => {
+    // Optimistic update
+    setApkErrors(apkErrors.map(e => 
+      e.id === errorId ? { ...e, resolved: !currentResolved } : e
+    ))
+
+    const { error } = await supabase
+      .from('fletcher_apk_errors')
+      .update({ resolved: !currentResolved })
+      .eq('id', errorId)
+
+    if (error) {
+      // Revert on error
+      setApkErrors(apkErrors.map(e => 
+        e.id === errorId ? { ...e, resolved: currentResolved } : e
+      ))
+      toast.error('Update mislukt')
+    }
+  }
+
+  // Delete error
+  const deleteError = async (errorId: string) => {
+    const errorToDelete = apkErrors.find(e => e.id === errorId)
+    
+    // Optimistic update
+    setApkErrors(apkErrors.filter(e => e.id !== errorId))
+
+    const { error } = await supabase
+      .from('fletcher_apk_errors')
+      .delete()
+      .eq('id', errorId)
+
+    if (error) {
+      // Revert on error
+      if (errorToDelete) {
+        setApkErrors([...apkErrors])
+      }
+      toast.error('Verwijderen mislukt')
+    }
   }
 
   // Save open questions
@@ -470,7 +548,94 @@ export default function FletcherApkDetailPage() {
         </CardContent>
       </Card>
 
-      {/* To Do's */}
+      {/* Errors */}
+      <Card className="border-red-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-red-600">
+            <AlertTriangle className="h-5 w-5" />
+            Errors / Problemen
+          </CardTitle>
+          <CardDescription>
+            {apkErrors.filter(e => !e.resolved).length} openstaand, {apkErrors.filter(e => e.resolved).length} opgelost
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* Add new error */}
+          <div className="flex gap-2 mb-4">
+            <Input
+              type="text"
+              value={newErrorText}
+              onChange={(e) => setNewErrorText(e.target.value)}
+              placeholder="Nieuwe error toevoegen..."
+              className="border-red-200 focus:ring-red-500"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  addError()
+                }
+              }}
+            />
+            <Button 
+              onClick={addError} 
+              variant="outline" 
+              className="border-red-200 text-red-600 hover:bg-red-50"
+              disabled={!newErrorText.trim()}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Error list */}
+          {apkErrors.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Nog geen errors gemeld
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {apkErrors.map(err => (
+                <div
+                  key={err.id}
+                  className={`flex items-start gap-3 p-3 rounded-lg border ${
+                    err.resolved 
+                      ? 'bg-green-50/50 border-green-200' 
+                      : 'bg-red-50/50 border-red-200'
+                  }`}
+                >
+                  <Checkbox
+                    checked={err.resolved}
+                    onCheckedChange={() => toggleErrorResolved(err.id, err.resolved)}
+                    className="mt-0.5"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm ${err.resolved ? 'line-through text-muted-foreground' : ''}`}>
+                      {err.text}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {new Date(err.created_at).toLocaleDateString('nl-NL', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => deleteError(err.id)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-100"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* To Do&apos;s */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

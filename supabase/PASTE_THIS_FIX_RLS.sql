@@ -123,6 +123,9 @@ CREATE TABLE IF NOT EXISTS public.fletcher_apk_runs (
   open_q1_knelpunten TEXT,
   open_q2_meerwaarde TEXT,
   
+  /* Errors section */
+  errors TEXT,
+  
   /* Meeting notes */
   meeting_notes TEXT,
   
@@ -130,6 +133,43 @@ CREATE TABLE IF NOT EXISTS public.fletcher_apk_runs (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+/* Add errors column if table already exists */
+ALTER TABLE public.fletcher_apk_runs ADD COLUMN IF NOT EXISTS errors TEXT;
+
+/* ============================================
+   FLETCHER APK ERRORS - Individual error entries
+   ============================================ */
+CREATE TABLE IF NOT EXISTS public.fletcher_apk_errors (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  run_id UUID NOT NULL REFERENCES public.fletcher_apk_runs(id) ON DELETE CASCADE,
+  text TEXT NOT NULL,
+  resolved BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+/* RLS for errors */
+ALTER TABLE public.fletcher_apk_errors ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "fletcher_apk_errors_admin_all" ON public.fletcher_apk_errors;
+CREATE POLICY "fletcher_apk_errors_admin_all" ON public.fletcher_apk_errors
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE id = auth.uid()
+      AND role IN ('admin', 'fletcher_admin')
+    )
+  );
+
+/* Index for errors */
+CREATE INDEX IF NOT EXISTS idx_fletcher_apk_errors_run_id ON public.fletcher_apk_errors(run_id);
+
+/* Trigger for errors updated_at */
+DROP TRIGGER IF EXISTS update_fletcher_apk_errors_updated_at ON public.fletcher_apk_errors;
+CREATE TRIGGER update_fletcher_apk_errors_updated_at
+  BEFORE UPDATE ON public.fletcher_apk_errors
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 /* ============================================
    FLETCHER APK CHECKLIST ITEMS
