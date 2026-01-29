@@ -81,6 +81,16 @@ export default function Layout({ children }: LayoutProps) {
                 >
                   Map
                 </Link>
+                <Link
+                  href="/premium-pass"
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${
+                    pathname === '/premium-pass'
+                      ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white'
+                      : 'bg-gradient-to-r from-purple-600 to-blue-500 text-white hover:from-purple-700 hover:to-blue-600'
+                  }`}
+                >
+                  Premium Pass
+                </Link>
                 {hasFletcherAccess && (
                   <Link
                     href="/fletcher"
@@ -226,6 +236,17 @@ export default function Layout({ children }: LayoutProps) {
                   }`}
                 >
                   Map
+                </Link>
+                <Link
+                  href="/premium-pass"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block px-3 py-2 rounded-md text-base font-medium ${
+                    pathname === '/premium-pass'
+                      ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white'
+                      : 'bg-gradient-to-r from-purple-600 to-blue-500 text-white'
+                  }`}
+                >
+                  Premium Pass
                 </Link>
                 {hasFletcherAccess && (
                   <Link
