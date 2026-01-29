@@ -12,13 +12,14 @@ interface LeaderboardEntry {
   interestedCount: number
   demoPlannedCount: number
   notInterestedCount: number
+  apkRunsCount: number
   lastVisitDate: string | null
 }
 
 export default function LeaderboardPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
-  const [sortBy, setSortBy] = useState<'visits' | 'interested' | 'demo_planned'>('visits')
+  const [sortBy, setSortBy] = useState<'visits' | 'interested' | 'demo_planned' | 'apk_runs'>('visits')
   const router = useRouter()
 
   useEffect(() => {
@@ -60,11 +61,17 @@ export default function LeaderboardPage() {
       const { data: allRecruiters, error: recruitersError } = await supabase
         .from('profiles')
         .select('*')
-        .in('role', ['recruiter', 'admin', 'reichskanzlier'])
+        .in('role', ['recruiter', 'admin', 'reichskanzlier', 'fletcher_admin'])
         .eq('active', true)
         .order('name')
 
       if (recruitersError) throw recruitersError
+
+      // Load only COMPLETED APK runs for fletcher admins (status = 'completed')
+      const { data: apkRuns, error: apkError } = await supabase
+        .from('fletcher_apk_runs')
+        .select('created_by')
+        .eq('status', 'completed')
 
       const leaderboardMap: Record<string, LeaderboardEntry> = {}
 
@@ -75,13 +82,27 @@ export default function LeaderboardPage() {
           interestedCount: 0,
           demoPlannedCount: 0,
           notInterestedCount: 0,
+          apkRunsCount: 0,
           lastVisitDate: null,
+        }
+      })
+
+      // Count APK runs per user
+      apkRuns?.forEach((run: any) => {
+        const entry = leaderboardMap[run.created_by]
+        if (entry) {
+          entry.apkRunsCount++
         }
       })
 
       allVisits?.forEach((visit: any) => {
         const entry = leaderboardMap[visit.recruiter_id]
         if (entry) {
+          // Skip visit counting for fletcher_admin - they only count completed APK runs
+          if (entry.recruiter.role === 'fletcher_admin') {
+            return
+          }
+          
           entry.totalVisits++
           if (visit.status === 'interested') entry.interestedCount++
           if (visit.status === 'demo_planned') entry.demoPlannedCount++
@@ -94,6 +115,13 @@ export default function LeaderboardPage() {
       })
 
       let sorted = Object.values(leaderboardMap)
+        // Filter out fletcher_admin users with 0 completed APK runs
+        .filter(entry => {
+          if (entry.recruiter.role === 'fletcher_admin') {
+            return entry.apkRunsCount > 0
+          }
+          return true
+        })
 
       if (sortBy === 'visits') {
         sorted = sorted.sort((a, b) => b.totalVisits - a.totalVisits)
@@ -101,6 +129,8 @@ export default function LeaderboardPage() {
         sorted = sorted.sort((a, b) => b.interestedCount - a.interestedCount)
       } else if (sortBy === 'demo_planned') {
         sorted = sorted.sort((a, b) => b.demoPlannedCount - a.demoPlannedCount)
+      } else if (sortBy === 'apk_runs') {
+        sorted = sorted.sort((a, b) => b.apkRunsCount - a.apkRunsCount)
       }
 
       setLeaderboard(sorted)
@@ -123,12 +153,13 @@ export default function LeaderboardPage() {
           <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Sort by:</label>
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as 'visits' | 'interested' | 'demo_planned')}
+            onChange={(e) => setSortBy(e.target.value as 'visits' | 'interested' | 'demo_planned' | 'apk_runs')}
             className="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="visits">Total Visits</option>
             <option value="interested">Interested</option>
             <option value="demo_planned">Demo Planned</option>
+            <option value="apk_runs">APK Runs</option>
           </select>
         </div>
       </div>
@@ -157,6 +188,9 @@ export default function LeaderboardPage() {
                   Not Interested
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  APK Runs
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Last Visit
                 </th>
               </tr>
@@ -164,7 +198,7 @@ export default function LeaderboardPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {leaderboard.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
                     No data available
                   </td>
                 </tr>
@@ -224,6 +258,15 @@ export default function LeaderboardPage() {
                       <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
                         {entry.notInterestedCount}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {entry.apkRunsCount > 0 ? (
+                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">
+                          {entry.apkRunsCount}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {entry.lastVisitDate
@@ -301,6 +344,12 @@ export default function LeaderboardPage() {
                     <div className="text-xs text-gray-500">Not Interested</div>
                     <div className="text-lg font-bold text-red-800">{entry.notInterestedCount}</div>
                   </div>
+                  {entry.apkRunsCount > 0 && (
+                    <div className="bg-white rounded p-2 col-span-2">
+                      <div className="text-xs text-gray-500">APK Runs</div>
+                      <div className="text-lg font-bold text-orange-800">{entry.apkRunsCount}</div>
+                    </div>
+                  )}
                 </div>
                 {entry.lastVisitDate && (
                   <div className="mt-3 text-xs text-gray-500">

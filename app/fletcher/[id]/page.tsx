@@ -26,7 +26,10 @@ import {
   Save,
   MessageSquare,
   X,
-  AlertTriangle
+  AlertTriangle,
+  StickyNote,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 
 export default function FletcherApkDetailPage() {
@@ -52,8 +55,24 @@ export default function FletcherApkDetailPage() {
   
   // New error state
   const [newErrorText, setNewErrorText] = useState('')
+  
+  // Track expanded notes
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set())
 
   const totalItems = getTotalChecklistItems()
+  
+  // Toggle note expansion
+  const toggleNoteExpansion = (itemKey: string) => {
+    setExpandedNotes(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(itemKey)) {
+        newSet.delete(itemKey)
+      } else {
+        newSet.add(itemKey)
+      }
+      return newSet
+    })
+  }
 
   useEffect(() => {
     if (params.id) {
@@ -356,6 +375,32 @@ export default function FletcherApkDetailPage() {
     return item?.checked || false
   }
 
+  // Get note for an item
+  const getNote = (itemKey: string): string => {
+    const item = checkItems.find(i => i.item_key === itemKey)
+    return item?.note || ''
+  }
+
+  // Save note for an item
+  const saveNote = async (itemKey: string, note: string) => {
+    const item = checkItems.find(i => i.item_key === itemKey)
+    if (!item) return
+
+    // Optimistic update
+    setCheckItems(prev => prev.map(i => 
+      i.item_key === itemKey ? { ...i, note: note || null } : i
+    ))
+
+    const { error } = await supabase
+      .from('fletcher_apk_check_items')
+      .update({ note: note || null })
+      .eq('id', item.id)
+
+    if (error) {
+      toast.error('Notitie opslaan mislukt')
+    }
+  }
+
   // Calculate completion
   const checkedCount = checkItems.filter(i => i.checked).length
   const completionPercent = totalItems > 0 ? Math.round((checkedCount / totalItems) * 100) : 0
@@ -486,23 +531,79 @@ export default function FletcherApkDetailPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {section.items.map(item => (
-                <div
-                  key={item.key}
-                  className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={() => toggleCheckItem(item.key, getCheckStatus(item.key))}
-                >
-                  <Checkbox
-                    checked={getCheckStatus(item.key)}
-                    onCheckedChange={() => toggleCheckItem(item.key, getCheckStatus(item.key))}
-                    className="mt-0.5"
-                  />
-                  <span className={getCheckStatus(item.key) ? 'text-muted-foreground line-through' : ''}>
-                    {item.label}
-                  </span>
-                </div>
-              ))}
+            <div className="space-y-2">
+              {section.items.map(item => {
+                const isExpanded = expandedNotes.has(item.key)
+                const note = getNote(item.key)
+                const hasNote = !!note
+                
+                return (
+                  <div
+                    key={item.key}
+                    className="rounded-lg border border-transparent hover:border-muted transition-colors"
+                  >
+                    <div className="flex items-center gap-3 p-3">
+                      <Checkbox
+                        checked={getCheckStatus(item.key)}
+                        onCheckedChange={() => toggleCheckItem(item.key, getCheckStatus(item.key))}
+                        className="mt-0.5"
+                      />
+                      <span 
+                        className={`flex-1 cursor-pointer ${getCheckStatus(item.key) ? 'text-muted-foreground line-through' : ''}`}
+                        onClick={() => toggleCheckItem(item.key, getCheckStatus(item.key))}
+                      >
+                        {item.label}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleNoteExpansion(item.key)
+                        }}
+                        className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                          hasNote 
+                            ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' 
+                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        }`}
+                      >
+                        <StickyNote className="h-3 w-3" />
+                        {hasNote ? 'Notitie' : 'Notitie'}
+                        {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      </button>
+                    </div>
+                    
+                    {/* Note input - expandable */}
+                    {isExpanded && (
+                      <div className="px-3 pb-3 pl-10">
+                        <textarea
+                          value={note}
+                          onChange={(e) => {
+                            // Update local state immediately
+                            setCheckItems(prev => prev.map(i => 
+                              i.item_key === item.key ? { ...i, note: e.target.value || null } : i
+                            ))
+                          }}
+                          onBlur={(e) => saveNote(item.key, e.target.value)}
+                          placeholder="Voeg een notitie toe..."
+                          rows={2}
+                          className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 resize-none"
+                        />
+                      </div>
+                    )}
+                    
+                    {/* Show note preview when collapsed and has note */}
+                    {!isExpanded && hasNote && (
+                      <div 
+                        className="px-3 pb-2 pl-10 cursor-pointer"
+                        onClick={() => toggleNoteExpansion(item.key)}
+                      >
+                        <p className="text-xs text-muted-foreground bg-orange-50 rounded px-2 py-1 line-clamp-1">
+                          {note}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </CardContent>
         </Card>

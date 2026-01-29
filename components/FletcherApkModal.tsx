@@ -74,7 +74,7 @@ export default function FletcherApkModal({ isOpen, onClose, onSuccess, locations
   const filteredLocations = allLocations.filter(loc =>
     loc.name.toLowerCase().includes(locationSearch.toLowerCase()) ||
     loc.city.toLowerCase().includes(locationSearch.toLowerCase())
-  ).slice(0, 10)
+  ).slice(0, 20)
 
   const selectLocation = (location: Location) => {
     setSelectedLocation(location)
@@ -181,7 +181,7 @@ export default function FletcherApkModal({ isOpen, onClose, onSuccess, locations
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       
       {/* Modal */}
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden mx-4">
+      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b bg-orange-50">
           <div className="flex items-center gap-3">
@@ -197,7 +197,7 @@ export default function FletcherApkModal({ isOpen, onClose, onSuccess, locations
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-6 min-h-[300px]">
           {/* Selected location display */}
           {selectedLocation ? (
             <div>
@@ -319,7 +319,7 @@ export default function FletcherApkModal({ isOpen, onClose, onSuccess, locations
               </div>
               
               {showLocationResults && (
-                <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <div className="absolute z-50 w-full mt-1 bg-white border-2 border-orange-200 rounded-lg shadow-2xl max-h-80 overflow-y-auto">
                   {filteredLocations.length === 0 ? (
                     <div className="p-4 text-center">
                       <p className="text-sm text-gray-500 mb-3">
@@ -343,17 +343,23 @@ export default function FletcherApkModal({ isOpen, onClose, onSuccess, locations
                     </div>
                   ) : (
                     <>
+                      <div className="sticky top-0 bg-gray-100 px-4 py-2 text-xs text-gray-500 font-medium border-b">
+                        {filteredLocations.length} resultaten
+                      </div>
                       {filteredLocations.map(location => (
                         <button
                           key={location.id}
                           type="button"
                           onClick={() => selectLocation(location)}
-                          className="w-full text-left px-4 py-3 hover:bg-orange-50 flex items-center gap-3 border-b last:border-b-0"
+                          className="w-full text-left px-4 py-3 hover:bg-orange-50 flex items-center gap-3 border-b last:border-b-0 transition-colors"
                         >
-                          <Building2 className="h-5 w-5 text-gray-400" />
-                          <div>
-                            <p className="font-medium">{location.name}</p>
-                            <p className="text-sm text-gray-500">{location.city}</p>
+                          <Building2 className="h-5 w-5 text-orange-500 flex-shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-900 truncate">{location.name}</p>
+                            <p className="text-sm text-gray-500 flex items-center gap-1">
+                              <MapPin className="h-3 w-3 flex-shrink-0" />
+                              {location.city}
+                            </p>
                           </div>
                         </button>
                       ))}

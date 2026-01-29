@@ -40,11 +40,15 @@ CREATE TABLE IF NOT EXISTS public.fletcher_apk_check_items (
   section TEXT NOT NULL,
   label TEXT NOT NULL,
   checked BOOLEAN DEFAULT FALSE,
+  note TEXT DEFAULT NULL,
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   
   /* Unique constraint per run */
   UNIQUE(run_id, item_key)
 );
+
+/* Add note column if it doesn't exist (for existing installations) */
+ALTER TABLE public.fletcher_apk_check_items ADD COLUMN IF NOT EXISTS note TEXT DEFAULT NULL;
 
 /* ============================================
    FLETCHER APK TODOS - Action items

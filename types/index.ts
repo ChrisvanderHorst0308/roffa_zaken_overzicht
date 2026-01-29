@@ -94,6 +94,7 @@ export interface FletcherApkCheckItem {
   section: string
   label: string
   checked: boolean
+  note: string | null
   updated_at: string
 }
 
