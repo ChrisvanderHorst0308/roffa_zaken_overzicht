@@ -5,6 +5,39 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { Profile, Visit } from '@/types'
 import toast from 'react-hot-toast'
+import { Shield, Target, Star, Zap, Medal, Award, Trophy, Crown, Flame, Gem, Sparkles, Ghost, Rocket } from 'lucide-react'
+
+// Battle Pass Tiers Configuration
+const BATTLE_PASS_TIERS = [
+  { tier: 1, visitsRequired: 1, reward: 'Rookie', icon: Shield, rarity: 'common', color: 'bg-gray-500', textColor: 'text-gray-600' },
+  { tier: 2, visitsRequired: 3, reward: 'First Steps', icon: Target, rarity: 'common', color: 'bg-gray-500', textColor: 'text-gray-600' },
+  { tier: 3, visitsRequired: 5, reward: 'Explorer', icon: Star, rarity: 'uncommon', color: 'bg-green-500', textColor: 'text-green-600' },
+  { tier: 4, visitsRequired: 8, reward: 'Pathfinder', icon: Zap, rarity: 'uncommon', color: 'bg-green-500', textColor: 'text-green-600' },
+  { tier: 5, visitsRequired: 10, reward: 'Bronze', icon: Medal, rarity: 'rare', color: 'bg-blue-500', textColor: 'text-blue-600' },
+  { tier: 6, visitsRequired: 15, reward: 'Scout', icon: Target, rarity: 'rare', color: 'bg-blue-500', textColor: 'text-blue-600' },
+  { tier: 7, visitsRequired: 20, reward: 'Silver', icon: Award, rarity: 'rare', color: 'bg-blue-500', textColor: 'text-blue-600' },
+  { tier: 8, visitsRequired: 25, reward: 'Gold', icon: Trophy, rarity: 'epic', color: 'bg-purple-500', textColor: 'text-purple-600' },
+  { tier: 9, visitsRequired: 30, reward: 'Master', icon: Crown, rarity: 'epic', color: 'bg-purple-500', textColor: 'text-purple-600' },
+  { tier: 10, visitsRequired: 35, reward: 'Elite', icon: Flame, rarity: 'epic', color: 'bg-purple-500', textColor: 'text-purple-600' },
+  { tier: 11, visitsRequired: 40, reward: 'Diamond', icon: Gem, rarity: 'legendary', color: 'bg-gradient-to-r from-yellow-400 to-orange-500', textColor: 'text-yellow-600' },
+  { tier: 12, visitsRequired: 50, reward: 'Platinum', icon: Sparkles, rarity: 'legendary', color: 'bg-gradient-to-r from-yellow-400 to-orange-500', textColor: 'text-yellow-600' },
+  { tier: 13, visitsRequired: 75, reward: 'Shadow', icon: Ghost, rarity: 'legendary', color: 'bg-gradient-to-r from-yellow-400 to-orange-500', textColor: 'text-yellow-600' },
+  { tier: 14, visitsRequired: 100, reward: 'Victory', icon: Rocket, rarity: 'mythic', color: 'bg-gradient-to-r from-pink-500 to-purple-500', textColor: 'text-pink-600' },
+  { tier: 15, visitsRequired: 150, reward: 'G.O.A.T.', icon: Crown, rarity: 'mythic', color: 'bg-gradient-to-r from-pink-500 to-purple-500', textColor: 'text-pink-600' },
+]
+
+// Get tier based on visit count
+const getTierForVisits = (visits: number) => {
+  let currentTier = null
+  for (const tier of BATTLE_PASS_TIERS) {
+    if (visits >= tier.visitsRequired) {
+      currentTier = tier
+    } else {
+      break
+    }
+  }
+  return currentTier
+}
 
 interface LeaderboardEntry {
   recruiter: Profile
@@ -98,11 +131,6 @@ export default function LeaderboardPage() {
       allVisits?.forEach((visit: any) => {
         const entry = leaderboardMap[visit.recruiter_id]
         if (entry) {
-          // Skip visit counting for fletcher_admin - they only count completed APK runs
-          if (entry.recruiter.role === 'fletcher_admin') {
-            return
-          }
-          
           entry.totalVisits++
           if (visit.status === 'interested') entry.interestedCount++
           if (visit.status === 'demo_planned') entry.demoPlannedCount++
@@ -115,13 +143,6 @@ export default function LeaderboardPage() {
       })
 
       let sorted = Object.values(leaderboardMap)
-        // Filter out fletcher_admin users with 0 completed APK runs
-        .filter(entry => {
-          if (entry.recruiter.role === 'fletcher_admin') {
-            return entry.apkRunsCount > 0
-          }
-          return true
-        })
 
       if (sortBy === 'visits') {
         sorted = sorted.sort((a, b) => b.totalVisits - a.totalVisits)
@@ -234,7 +255,22 @@ export default function LeaderboardPage() {
                           </div>
                         )}
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{entry.recruiter.name}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-900">{entry.recruiter.name}</span>
+                            {(() => {
+                              const tier = getTierForVisits(entry.totalVisits)
+                              if (tier) {
+                                const Icon = tier.icon
+                                return (
+                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold text-white ${tier.color}`}>
+                                    <Icon className="w-3 h-3" />
+                                    {tier.reward}
+                                  </span>
+                                )
+                              }
+                              return null
+                            })()}
+                          </div>
                           <div className="text-sm text-gray-500">
                             {entry.recruiter.nickname ? `${entry.recruiter.nickname} - ${entry.recruiter.role}` : entry.recruiter.role}
                           </div>
@@ -321,7 +357,20 @@ export default function LeaderboardPage() {
                       <div className="text-base font-semibold text-gray-900 truncate">
                         {entry.recruiter.name}
                       </div>
-                      <div className="text-sm text-gray-500">
+                      {(() => {
+                        const tier = getTierForVisits(entry.totalVisits)
+                        if (tier) {
+                          const Icon = tier.icon
+                          return (
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold text-white ${tier.color} mt-1`}>
+                              <Icon className="w-3 h-3" />
+                              {tier.reward}
+                            </span>
+                          )
+                        }
+                        return null
+                      })()}
+                      <div className="text-sm text-gray-500 mt-1">
                         {entry.recruiter.nickname ? `${entry.recruiter.nickname} - ${entry.recruiter.role}` : entry.recruiter.role}
                       </div>
                     </div>
