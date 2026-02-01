@@ -155,7 +155,7 @@ export default function FletcherPage() {
             .from('fletcher_apk_todos')
             .select('*')
             .in('run_id', runIds)
-            .eq('completed', false)
+            .eq('done', false)
             .order('created_at', { ascending: false })
 
           if (todosData && runsData) {
@@ -190,17 +190,17 @@ export default function FletcherPage() {
     router.push(`/fletcher/${runId}`)
   }
 
-  const toggleTodoComplete = async (todoId: string, completed: boolean) => {
+  const toggleTodoComplete = async (todoId: string, done: boolean) => {
     try {
       const { error } = await supabase
         .from('fletcher_apk_todos')
-        .update({ completed })
+        .update({ done })
         .eq('id', todoId)
 
       if (error) throw error
 
-      // Remove from list if completed
-      if (completed) {
+      // Remove from list if done
+      if (done) {
         setAllTodos(prev => prev.filter(t => t.id !== todoId))
         toast.success('Todo afgerond!')
       }
@@ -224,8 +224,8 @@ export default function FletcherPage() {
   }
 
   // Calculate stats
-  const completedRuns = apkRuns.filter(r => r.status === 'submitted' || r.status === 'completed')
-  const inProgressRuns = apkRuns.filter(r => r.status === 'draft' || r.status === 'in_progress')
+  const completedRuns = apkRuns.filter(r => r.status === 'submitted')
+  const inProgressRuns = apkRuns.filter(r => r.status === 'draft')
   const avgCompletion = apkRuns.length > 0 
     ? Math.round(apkRuns.reduce((acc, run) => acc + getCompletionPercentage(run.id), 0) / apkRuns.length)
     : 0
@@ -382,7 +382,7 @@ export default function FletcherPage() {
                         className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                       >
                         <Checkbox
-                          checked={todo.completed}
+                          checked={todo.done}
                           onCheckedChange={(checked) => toggleTodoComplete(todo.id, !!checked)}
                         />
                         <div className="flex-1 min-w-0">
@@ -481,8 +481,8 @@ export default function FletcherPage() {
                         <div className="flex items-center gap-2">
                           <Building2 className="h-4 w-4 text-orange-600" />
                           <span className="font-medium truncate">{run.location?.name}</span>
-                          <Badge variant={run.status === 'submitted' || run.status === 'completed' ? 'success' : 'warning'} className="ml-auto">
-                            {run.status === 'submitted' || run.status === 'completed' ? 'Afgerond' : 'In Progress'}
+                          <Badge variant={run.status === 'submitted' ? 'success' : 'warning'} className="ml-auto">
+                            {run.status === 'submitted' ? 'Afgerond' : 'In Progress'}
                           </Badge>
                         </div>
                         <div className="flex items-center gap-4 mt-2">
@@ -600,8 +600,8 @@ export default function FletcherPage() {
                             </div>
                           </td>
                           <td className="p-4 align-middle">
-                            <Badge variant={run.status === 'submitted' || run.status === 'completed' ? 'success' : 'warning'}>
-                              {run.status === 'submitted' || run.status === 'completed' ? 'Afgerond' : 'In Progress'}
+                            <Badge variant={run.status === 'submitted' ? 'success' : 'warning'}>
+                              {run.status === 'submitted' ? 'Afgerond' : 'In Progress'}
                             </Badge>
                           </td>
                           <td className="p-4 align-middle">
@@ -653,8 +653,8 @@ export default function FletcherPage() {
                               {run.location?.city}
                             </CardDescription>
                           </div>
-                          <Badge variant={run.status === 'submitted' || run.status === 'completed' ? 'success' : 'warning'}>
-                            {run.status === 'submitted' || run.status === 'completed' ? 'Afgerond' : 'In Progress'}
+                          <Badge variant={run.status === 'submitted' ? 'success' : 'warning'}>
+                            {run.status === 'submitted' ? 'Afgerond' : 'In Progress'}
                           </Badge>
                         </div>
                       </CardHeader>
@@ -713,7 +713,7 @@ export default function FletcherPage() {
                     className="flex items-start gap-3 p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                   >
                     <Checkbox
-                      checked={todo.completed}
+                      checked={todo.done}
                       onCheckedChange={(checked) => toggleTodoComplete(todo.id, !!checked)}
                       className="mt-1"
                     />
@@ -832,7 +832,7 @@ export default function FletcherPage() {
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                        label={({ name, percent }) => `${name} (${((percent || 0) * 100).toFixed(0)}%)`}
                         outerRadius={100}
                         fill="#8884d8"
                         dataKey="value"
@@ -876,10 +876,7 @@ export default function FletcherPage() {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis type="number" domain={[0, 100]} unit="%" />
                       <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11 }} />
-                      <Tooltip 
-                        formatter={(value: number) => [`${value}%`, 'Voortgang']}
-                        labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
-                      />
+                      <Tooltip />
                       <Bar dataKey="completion" fill="#f97316" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -1113,8 +1110,8 @@ export default function FletcherPage() {
                           <td className="p-4 align-middle font-medium">{run.location?.name}</td>
                           <td className="p-4 align-middle text-muted-foreground">{run.location?.city}</td>
                           <td className="p-4 align-middle">
-                            <Badge variant={run.status === 'submitted' || run.status === 'completed' ? 'success' : 'warning'}>
-                              {run.status === 'submitted' || run.status === 'completed' ? 'Afgerond' : 'In Progress'}
+                            <Badge variant={run.status === 'submitted' ? 'success' : 'warning'}>
+                              {run.status === 'submitted' ? 'Afgerond' : 'In Progress'}
                             </Badge>
                           </td>
                           <td className="p-4 align-middle">
