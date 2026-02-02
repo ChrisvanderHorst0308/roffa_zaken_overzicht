@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import { FletcherApkRunWithRelations, FletcherApkCheckItem, FletcherApkTodo, FletcherApkError } from '@/types'
-import { FLETCHER_CHECKLIST, getTotalChecklistItems } from '@/lib/fletcherChecklist'
+import { FLETCHER_CHECKLIST, getTotalChecklistItems, getAllChecklistItems } from '@/lib/fletcherChecklist'
 import toast from 'react-hot-toast'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -168,25 +168,53 @@ export default function FletcherApkDetailPage() {
 
   // Toggle check item
   const toggleCheckItem = async (itemKey: string, currentChecked: boolean) => {
-    const item = checkItems.find(i => i.item_key === itemKey)
-    if (!item) return
+    if (!run) return
+    
+    const existingItem = checkItems.find(i => i.item_key === itemKey)
+    
+    // Find item info from checklist definition
+    const allItems = getAllChecklistItems()
+    const itemInfo = allItems.find(i => i.key === itemKey)
+    if (!itemInfo) return
 
-    // Optimistic update
-    setCheckItems(prev => prev.map(i => 
-      i.item_key === itemKey ? { ...i, checked: !currentChecked } : i
-    ))
-
-    const { error } = await supabase
-      .from('fletcher_apk_check_items')
-      .update({ checked: !currentChecked })
-      .eq('id', item.id)
-
-    if (error) {
-      // Revert on error
+    if (existingItem) {
+      // Optimistic update
       setCheckItems(prev => prev.map(i => 
-        i.item_key === itemKey ? { ...i, checked: currentChecked } : i
+        i.item_key === itemKey ? { ...i, checked: !currentChecked } : i
       ))
-      toast.error('Failed to save')
+
+      const { error } = await supabase
+        .from('fletcher_apk_check_items')
+        .update({ checked: !currentChecked })
+        .eq('id', existingItem.id)
+
+      if (error) {
+        // Revert on error
+        setCheckItems(prev => prev.map(i => 
+          i.item_key === itemKey ? { ...i, checked: currentChecked } : i
+        ))
+        toast.error('Failed to save')
+      }
+    } else {
+      // Create new item
+      const { data, error } = await supabase
+        .from('fletcher_apk_check_items')
+        .insert({
+          run_id: run.id,
+          item_key: itemKey,
+          section: itemInfo.section,
+          label: itemInfo.label,
+          checked: !currentChecked,
+          note: null
+        })
+        .select()
+        .single()
+
+      if (error) {
+        toast.error('Failed to save')
+      } else {
+        setCheckItems(prev => [...prev, data])
+      }
     }
   }
 
@@ -398,21 +426,68 @@ export default function FletcherApkDetailPage() {
 
   // Save note for an item (with visual feedback for Windows)
   const saveNote = async (itemKey: string, note: string) => {
-    const item = checkItems.find(i => i.item_key === itemKey)
-    if (!item) return
-
+    if (!run) return
+    
     // Mark as saving
     setPendingNoteSaves(prev => new Set(prev).add(itemKey))
 
-    // Optimistic update
-    setCheckItems(prev => prev.map(i => 
-      i.item_key === itemKey ? { ...i, note: note || null } : i
-    ))
+    // Find the item info from the checklist definition
+    const allItems = getAllChecklistItems()
+    const itemInfo = allItems.find(i => i.key === itemKey)
+    if (!itemInfo) {
+      setPendingNoteSaves(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(itemKey)
+        return newSet
+      })
+      toast.error('Item niet gevonden')
+      return
+    }
 
-    const { error } = await supabase
-      .from('fletcher_apk_check_items')
-      .update({ note: note || null })
-      .eq('id', item.id)
+    // Check if item exists in database
+    const existingItem = checkItems.find(i => i.item_key === itemKey)
+
+    if (existingItem) {
+      // Update existing item
+      const { error } = await supabase
+        .from('fletcher_apk_check_items')
+        .update({ note: note || null })
+        .eq('id', existingItem.id)
+
+      if (error) {
+        console.error('Update error:', error)
+        toast.error('Notitie opslaan mislukt')
+      } else {
+        // Update local state
+        setCheckItems(prev => prev.map(i => 
+          i.item_key === itemKey ? { ...i, note: note || null } : i
+        ))
+        toast.success('Notitie opgeslagen', { duration: 1500 })
+      }
+    } else {
+      // Create new item with note
+      const { data, error } = await supabase
+        .from('fletcher_apk_check_items')
+        .insert({
+          run_id: run.id,
+          item_key: itemKey,
+          section: itemInfo.section,
+          label: itemInfo.label,
+          checked: false,
+          note: note || null
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Insert error:', error)
+        toast.error('Notitie opslaan mislukt')
+      } else {
+        // Add to local state
+        setCheckItems(prev => [...prev, data])
+        toast.success('Notitie opgeslagen', { duration: 1500 })
+      }
+    }
 
     // Remove from pending
     setPendingNoteSaves(prev => {
@@ -420,12 +495,6 @@ export default function FletcherApkDetailPage() {
       newSet.delete(itemKey)
       return newSet
     })
-
-    if (error) {
-      toast.error('Notitie opslaan mislukt')
-    } else {
-      toast.success('Notitie opgeslagen', { duration: 1500 })
-    }
   }
 
   // Save section note
