@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabaseClient'
 import { VisitWithRelations } from '@/types'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
+import { CalendarPlus, Calendar } from 'lucide-react'
+import { createVisitCalendarEvent } from '@/lib/googleCalendar'
 
 export default function VisitDetailPage() {
   const params = useParams()
@@ -14,6 +16,10 @@ export default function VisitDetailPage() {
   const [visit, setVisit] = useState<VisitWithRelations | null>(null)
   const [otherVisits, setOtherVisits] = useState<VisitWithRelations[]>([])
   const [loading, setLoading] = useState(true)
+  const [showNextVisit, setShowNextVisit] = useState(false)
+  const [nextVisitDate, setNextVisitDate] = useState('')
+  const [nextVisitTime, setNextVisitTime] = useState('10:00')
+  const [nextVisitNotes, setNextVisitNotes] = useState('')
 
   useEffect(() => {
     if (visitId) {
@@ -108,13 +114,102 @@ export default function VisitDetailPage() {
           </Link>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Visit Details</h1>
         </div>
-        <Link
-          href={`/visits/${visitId}/edit`}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-center"
-        >
-          Edit Visit
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setShowNextVisit(!showNextVisit)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+          >
+            <CalendarPlus className="h-4 w-4" />
+            Plan Next Visit
+          </button>
+          <Link
+            href={`/visits/${visitId}/edit`}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-center"
+          >
+            Edit Visit
+          </Link>
+        </div>
       </div>
+
+      {/* Plan Next Visit Section */}
+      {showNextVisit && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+          <h2 className="text-lg font-semibold text-green-900 mb-4 flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Plan Next Visit to {visit.location.name}
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Datum
+              </label>
+              <input
+                type="date"
+                value={nextVisitDate}
+                onChange={(e) => setNextVisitDate(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tijd
+              </label>
+              <input
+                type="time"
+                value={nextVisitTime}
+                onChange={(e) => setNextVisitTime(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Notities (optioneel)
+              </label>
+              <textarea
+                value={nextVisitNotes}
+                onChange={(e) => setNextVisitNotes(e.target.value)}
+                placeholder="Wat wil je bespreken bij de volgende visit?"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                rows={2}
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              onClick={() => {
+                if (!nextVisitDate) {
+                  toast.error('Selecteer een datum')
+                  return
+                }
+                const [year, month, day] = nextVisitDate.split('-').map(Number)
+                const [hours, minutes] = nextVisitTime.split(':').map(Number)
+                const visitDateTime = new Date(year, month - 1, day, hours, minutes)
+                
+                const url = createVisitCalendarEvent(
+                  visit.location.name,
+                  visit.location.city || undefined,
+                  visit.location.address || undefined,
+                  visitDateTime,
+                  nextVisitNotes || undefined
+                )
+                window.open(url, '_blank')
+                toast.success('Opening Google Calendar...')
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              <CalendarPlus className="h-4 w-4" />
+              Toevoegen aan Google Calendar
+            </button>
+            <button
+              onClick={() => setShowNextVisit(false)}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+            >
+              Annuleren
+            </button>
+          </div>
+        </div>
+      )}
 
       {otherVisits.length > 0 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">

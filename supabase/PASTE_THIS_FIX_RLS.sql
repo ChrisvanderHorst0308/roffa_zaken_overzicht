@@ -152,6 +152,9 @@ CREATE TABLE IF NOT EXISTS public.fletcher_apk_runs (
 /* Add errors column if table already exists */
 ALTER TABLE public.fletcher_apk_runs ADD COLUMN IF NOT EXISTS errors TEXT;
 
+/* Add section_notes column for per-section notes */
+ALTER TABLE public.fletcher_apk_runs ADD COLUMN IF NOT EXISTS section_notes JSONB DEFAULT '{}'::jsonb;
+
 /* ============================================
    FLETCHER APK ERRORS - Individual error entries
    ============================================ */

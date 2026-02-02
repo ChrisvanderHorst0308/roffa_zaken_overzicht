@@ -75,6 +75,7 @@ export interface FletcherApkRun {
   open_q2_meerwaarde: string | null
   errors: string | null
   meeting_notes: string | null
+  section_notes: Record<string, string> | null
   created_at: string
   updated_at: string
 }
