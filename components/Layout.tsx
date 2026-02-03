@@ -40,6 +40,7 @@ export default function Layout({ children }: LayoutProps) {
 
   const isAdmin = profile?.role === 'admin' || profile?.role === 'reichskanzlier' || profile?.role === 'fletcher_admin'
   const hasFletcherAccess = profile?.role === 'admin' || profile?.role === 'fletcher_admin'
+  const isStrictAdmin = profile?.role === 'admin' || profile?.role === 'reichskanzlier'
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -126,6 +127,18 @@ export default function Layout({ children }: LayoutProps) {
                       Admin
                     </Link>
                   </>
+                )}
+                {isStrictAdmin && (
+                  <Link
+                    href="/orderli"
+                    className={`px-3 py-2 rounded-md text-sm font-medium ${
+                      pathname === '/orderli'
+                        ? 'bg-indigo-100 text-indigo-900'
+                        : 'text-indigo-600 hover:bg-indigo-50'
+                    }`}
+                  >
+                    Orderli
+                  </Link>
                 )}
               </div>
             </div>
@@ -286,6 +299,19 @@ export default function Layout({ children }: LayoutProps) {
                       Admin
                     </Link>
                   </>
+                )}
+                {isStrictAdmin && (
+                  <Link
+                    href="/orderli"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`block px-3 py-2 rounded-md text-base font-medium ${
+                      pathname === '/orderli'
+                        ? 'bg-indigo-100 text-indigo-900'
+                        : 'text-indigo-600 hover:bg-indigo-50'
+                    }`}
+                  >
+                    Orderli
+                  </Link>
                 )}
                 <button
                   onClick={() => {
