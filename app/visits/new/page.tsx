@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import { Project, Location, VisitStatus } from '@/types'
+import { Project, Location, VisitStatus, Contact } from '@/types'
 import toast from 'react-hot-toast'
 import Modal from '@/components/Modal'
-import { MapPin, Building2, Globe, Navigation, Search, Loader2, Monitor } from 'lucide-react'
+import { MapPin, Building2, Globe, Navigation, Search, Loader2, Monitor, User, Phone, Mail, Briefcase, UserPlus, Users } from 'lucide-react'
 
 // POS Systems list
 const POS_SYSTEMS = [
@@ -82,6 +82,17 @@ export default function NewVisitPage() {
   // POS system state
   const [selectedPosId, setSelectedPosId] = useState<string>('')
   const [customPosName, setCustomPosName] = useState('')
+
+  // Contact person state
+  const [locationContacts, setLocationContacts] = useState<Contact[]>([])
+  const [showCreateContact, setShowCreateContact] = useState(false)
+  const [contactData, setContactData] = useState({
+    contact_id: '',
+    contact_name: '',
+    contact_function: '',
+    contact_phone: '',
+    contact_email: '',
+  })
 
   const [formData, setFormData] = useState({
     project_id: '',
@@ -237,6 +248,42 @@ export default function NewVisitPage() {
     loc.city.toLowerCase().includes(locationSearch.toLowerCase())
   )
 
+  // Load contacts for selected location
+  const loadContactsForLocation = async (locationId: string) => {
+    if (!locationId) {
+      setLocationContacts([])
+      return
+    }
+    try {
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('location_id', locationId)
+        .order('name')
+      
+      if (error) throw error
+      setLocationContacts(data || [])
+    } catch (error) {
+      console.error('Error loading contacts:', error)
+      setLocationContacts([])
+    }
+  }
+
+  // Handle location selection
+  const handleLocationSelect = async (locationId: string) => {
+    setFormData(prev => ({ ...prev, location_id: locationId }))
+    setLocationSearch('')
+    setContactData({
+      contact_id: '',
+      contact_name: '',
+      contact_function: '',
+      contact_phone: '',
+      contact_email: '',
+    })
+    setShowCreateContact(false)
+    await loadContactsForLocation(locationId)
+  }
+
   const checkDuplicatesAndOverlaps = async (locationId: string, visitDate: string) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { hasDuplicate: false, hasOverlap: false }
@@ -359,12 +406,42 @@ export default function NewVisitPage() {
   }
 
   const createVisit = async (locationId: string, userId: string) => {
+    let contactId: string | null = null
+
+    // If there's a new contact to create (has name but no existing contact_id selected)
+    if (contactData.contact_name && !contactData.contact_id) {
+      const { data: newContact, error: contactError } = await supabase
+        .from('contacts')
+        .insert({
+          location_id: locationId,
+          name: contactData.contact_name,
+          function: contactData.contact_function || null,
+          phone: contactData.contact_phone || null,
+          email: contactData.contact_email || null,
+          created_by: userId,
+        })
+        .select()
+        .single()
+
+      if (contactError) {
+        console.error('Error creating contact:', contactError)
+        // Don't fail the visit creation, just skip the contact
+      } else {
+        contactId = newContact.id
+        toast.success('Contactpersoon aangemaakt')
+      }
+    } else if (contactData.contact_id) {
+      // Use existing contact
+      contactId = contactData.contact_id
+    }
+
     const { error } = await supabase
       .from('visits')
       .insert({
         recruiter_id: userId,
         project_id: formData.project_id,
         location_id: locationId,
+        contact_id: contactId,
         pos_system: formData.pos_system,
         spoken_to: formData.spoken_to,
         takeaway: formData.takeaway,
@@ -483,10 +560,7 @@ export default function NewVisitPage() {
                       <button
                         key={location.id}
                         type="button"
-                        onClick={() => {
-                          setFormData({ ...formData, location_id: location.id })
-                          setLocationSearch('')
-                        }}
+                        onClick={() => handleLocationSelect(location.id)}
                         className={`w-full text-left px-3 py-2 hover:bg-gray-50 ${
                           formData.location_id === location.id ? 'bg-indigo-50' : ''
                         }`}
@@ -629,6 +703,155 @@ export default function NewVisitPage() {
           )}
         </div>
 
+        {/* Contact Person Section */}
+        {(formData.location_id || (formData.location_name && formData.location_city)) && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <label className="block text-sm font-medium text-green-800 mb-3 flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Contactpersoon
+            </label>
+
+            {/* Show existing contacts if any */}
+            {formData.location_id && locationContacts.length > 0 && !showCreateContact && (
+              <div className="space-y-3">
+                <p className="text-sm text-green-700">Selecteer een bestaande contactpersoon of maak een nieuwe aan:</p>
+                <div className="space-y-2">
+                  {locationContacts.map(contact => (
+                    <button
+                      key={contact.id}
+                      type="button"
+                      onClick={() => {
+                        setContactData({
+                          contact_id: contact.id,
+                          contact_name: contact.name,
+                          contact_function: contact.function || '',
+                          contact_phone: contact.phone || '',
+                          contact_email: contact.email || '',
+                        })
+                        setFormData(prev => ({ ...prev, spoken_to: contact.name }))
+                      }}
+                      className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-all ${
+                        contactData.contact_id === contact.id
+                          ? 'border-green-500 bg-green-100'
+                          : 'border-green-200 bg-white hover:border-green-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <User className="h-5 w-5 text-green-600" />
+                        <div>
+                          <div className="font-medium text-gray-900">{contact.name}</div>
+                          <div className="text-sm text-gray-500 flex items-center gap-3">
+                            {contact.function && <span>{contact.function}</span>}
+                            {contact.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{contact.phone}</span>}
+                            {contact.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{contact.email}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateContact(true)
+                    setContactData({
+                      contact_id: '',
+                      contact_name: '',
+                      contact_function: '',
+                      contact_phone: '',
+                      contact_email: '',
+                    })
+                  }}
+                  className="text-sm text-green-700 hover:text-green-800 flex items-center gap-1 mt-2"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Nieuwe contactpersoon aanmaken
+                </button>
+              </div>
+            )}
+
+            {/* Show create contact form */}
+            {(showCreateContact || !formData.location_id || locationContacts.length === 0) && (
+              <div className="space-y-3">
+                {locationContacts.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateContact(false)}
+                    className="text-sm text-green-600 hover:text-green-700"
+                  >
+                    ← Terug naar bestaande contacten
+                  </button>
+                )}
+                
+                <p className="text-sm text-green-700">
+                  {formData.location_id && locationContacts.length === 0 
+                    ? 'Nog geen contactpersonen voor deze locatie. Maak er een aan:' 
+                    : 'Vul de gegevens van de contactpersoon in:'}
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={contactData.contact_name}
+                      onChange={(e) => {
+                        setContactData({ ...contactData, contact_name: e.target.value, contact_id: '' })
+                        setFormData(prev => ({ ...prev, spoken_to: e.target.value }))
+                      }}
+                      placeholder="Naam *"
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                    />
+                  </div>
+                  
+                  <div className="relative">
+                    <Briefcase className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={contactData.contact_function}
+                      onChange={(e) => setContactData({ ...contactData, contact_function: e.target.value, contact_id: '' })}
+                      placeholder="Functie (bijv. eigenaar, manager)"
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                    />
+                  </div>
+                  
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="tel"
+                      value={contactData.contact_phone}
+                      onChange={(e) => setContactData({ ...contactData, contact_phone: e.target.value, contact_id: '' })}
+                      placeholder="Telefoonnummer"
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                    />
+                  </div>
+                  
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="email"
+                      value={contactData.contact_email}
+                      onChange={(e) => setContactData({ ...contactData, contact_email: e.target.value, contact_id: '' })}
+                      placeholder="E-mailadres"
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Show selected contact info */}
+            {contactData.contact_id && (
+              <div className="mt-3 p-3 bg-green-100 rounded-lg">
+                <p className="text-sm text-green-800">
+                  <span className="font-medium">Geselecteerd:</span> {contactData.contact_name}
+                  {contactData.contact_function && ` (${contactData.contact_function})`}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
             <Monitor className="h-4 w-4" />
@@ -671,19 +894,6 @@ export default function NewVisitPage() {
               Geselecteerd: <span className="font-medium text-indigo-600">{formData.pos_system}</span>
             </div>
           )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Spoken To *
-          </label>
-          <input
-            type="text"
-            required
-            value={formData.spoken_to}
-            onChange={(e) => setFormData({ ...formData, spoken_to: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
         </div>
 
         <div className="flex items-center space-x-6">

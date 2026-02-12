@@ -35,6 +35,22 @@ export interface Location {
   created_at: string
 }
 
+export interface Contact {
+  id: string
+  location_id: string
+  name: string
+  function: string | null
+  phone: string | null
+  email: string | null
+  notes: string | null
+  created_by: string | null
+  created_at: string
+}
+
+export interface ContactWithLocation extends Contact {
+  location: Location
+}
+
 export type VisitStatus = 'visited' | 'interested' | 'demo_planned' | 'not_interested' | 'potential' | 'already_client'
 
 export interface Visit {
@@ -42,6 +58,7 @@ export interface Visit {
   recruiter_id: string
   project_id: string
   location_id: string
+  contact_id: string | null
   pos_system: string
   spoken_to: string
   takeaway: boolean
@@ -58,6 +75,7 @@ export interface VisitWithRelations extends Visit {
   location: Location
   project: Project
   recruiter: Profile
+  contact?: Contact | null
 }
 
 /* ============================================
