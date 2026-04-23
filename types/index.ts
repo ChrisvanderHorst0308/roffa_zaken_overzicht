@@ -53,6 +53,15 @@ export interface ContactWithLocation extends Contact {
 
 export type VisitStatus = 'visited' | 'interested' | 'demo_planned' | 'not_interested' | 'potential' | 'already_client'
 
+/** Opgeslagen vervolgstappen bij een visit (o.a. voor Google Calendar-links) */
+export interface VisitNextStep {
+  id: string
+  title: string
+  due_date: string | null
+  due_time: string | null
+  notes: string | null
+}
+
 export interface Visit {
   id: string
   recruiter_id: string
@@ -69,6 +78,7 @@ export interface Visit {
   status: VisitStatus
   visit_date: string
   created_at: string
+  next_steps?: VisitNextStep[] | null
 }
 
 export interface VisitWithRelations extends Visit {

@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import { Project, Location, VisitStatus, Contact } from '@/types'
+import { Project, Location, VisitStatus, Contact, VisitNextStep } from '@/types'
+import { createNextStepCalendarUrl } from '@/lib/googleCalendar'
 import toast from 'react-hot-toast'
 import Modal from '@/components/Modal'
-import { MapPin, Building2, Globe, Navigation, Search, Loader2, Monitor, User, Phone, Mail, Briefcase, UserPlus, Users } from 'lucide-react'
+import { MapPin, Building2, Globe, Navigation, Search, Loader2, Monitor, User, Phone, Mail, Briefcase, UserPlus, Users, Pencil, StickyNote, ListChecks, CalendarPlus, Trash2 } from 'lucide-react'
 
 // POS Systems list
 const POS_SYSTEMS = [
@@ -83,16 +84,23 @@ export default function NewVisitPage() {
   const [selectedPosId, setSelectedPosId] = useState<string>('')
   const [customPosName, setCustomPosName] = useState('')
 
-  // Contact person state
+  // Contact person state (CRM-style: list, add, edit, quick-save)
   const [locationContacts, setLocationContacts] = useState<Contact[]>([])
   const [showCreateContact, setShowCreateContact] = useState(false)
+  const [editingContactId, setEditingContactId] = useState<string | null>(null)
+  const [savingContact, setSavingContact] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [isAdminUser, setIsAdminUser] = useState(false)
   const [contactData, setContactData] = useState({
     contact_id: '',
     contact_name: '',
     contact_function: '',
     contact_phone: '',
     contact_email: '',
+    contact_notes: '',
   })
+
+  const [nextSteps, setNextSteps] = useState<VisitNextStep[]>([])
 
   const [formData, setFormData] = useState({
     project_id: '',
@@ -211,7 +219,11 @@ export default function NewVisitPage() {
         .eq('id', user.id)
         .single()
 
-      if (profile?.role === 'admin' || profile?.role === 'reichskanzlier' || profile?.role === 'fletcher_admin') {
+      setUserId(user.id)
+      const adminRoles = profile?.role === 'admin' || profile?.role === 'reichskanzlier' || profile?.role === 'fletcher_admin'
+      setIsAdminUser(!!adminRoles)
+
+      if (adminRoles) {
         const { data: projectsData } = await supabase
           .from('projects')
           .select('*')
@@ -248,7 +260,15 @@ export default function NewVisitPage() {
     loc.city.toLowerCase().includes(locationSearch.toLowerCase())
   )
 
+  const hasLocationContext = !!(
+    formData.location_id ||
+    (formData.location_name.trim() !== '' && formData.location_city.trim() !== '')
+  )
+
   // Load contacts for selected location
+  const canEditContact = (contact: Contact) =>
+    !!(userId && (contact.created_by === userId || isAdminUser))
+
   const loadContactsForLocation = async (locationId: string) => {
     if (!locationId) {
       setLocationContacts([])
@@ -269,17 +289,201 @@ export default function NewVisitPage() {
     }
   }
 
-  // Handle location selection
-  const handleLocationSelect = async (locationId: string) => {
-    setFormData(prev => ({ ...prev, location_id: locationId }))
-    setLocationSearch('')
+  const resetContactFormFields = () => {
     setContactData({
       contact_id: '',
       contact_name: '',
       contact_function: '',
       contact_phone: '',
       contact_email: '',
+      contact_notes: '',
     })
+    setEditingContactId(null)
+  }
+
+  const exitContactForm = () => {
+    resetContactFormFields()
+    if (locationContacts.length > 0) {
+      setShowCreateContact(false)
+    }
+  }
+
+  const startEditContact = (contact: Contact) => {
+    setEditingContactId(contact.id)
+    setShowCreateContact(true)
+    setContactData({
+      contact_id: contact.id,
+      contact_name: contact.name,
+      contact_function: contact.function || '',
+      contact_phone: contact.phone || '',
+      contact_email: contact.email || '',
+      contact_notes: contact.notes || '',
+    })
+    setFormData(prev => ({ ...prev, spoken_to: contact.name }))
+  }
+
+  const saveEditedContact = async () => {
+    if (!editingContactId || !formData.location_id) {
+      toast.error('Selecteer eerst een opgeslagen locatie om contacten te bewerken.')
+      return
+    }
+    if (!contactData.contact_name.trim()) {
+      toast.error('Vul een naam in.')
+      return
+    }
+    setSavingContact(true)
+    try {
+      const { error } = await supabase
+        .from('contacts')
+        .update({
+          name: contactData.contact_name.trim(),
+          function: contactData.contact_function.trim() || null,
+          phone: contactData.contact_phone.trim() || null,
+          email: contactData.contact_email.trim() || null,
+          notes: contactData.contact_notes.trim() || null,
+        })
+        .eq('id', editingContactId)
+
+      if (error) throw error
+      toast.success('Contact bijgewerkt')
+      await loadContactsForLocation(formData.location_id)
+      setContactData({
+        contact_id: editingContactId,
+        contact_name: contactData.contact_name.trim(),
+        contact_function: contactData.contact_function.trim(),
+        contact_phone: contactData.contact_phone.trim(),
+        contact_email: contactData.contact_email.trim(),
+        contact_notes: contactData.contact_notes.trim(),
+      })
+      setEditingContactId(null)
+      setShowCreateContact(false)
+    } catch (e: any) {
+      console.error(e)
+      toast.error(e.message || 'Kon contact niet opslaan')
+    } finally {
+      setSavingContact(false)
+    }
+  }
+
+  const saveNewContactNow = async () => {
+    if (!formData.location_id) {
+      toast.error('Sla de locatie eerst op door een bestaande locatie te kiezen, of rond de visit af — nieuwe locaties krijgen contacten bij het aanmaken van de visit.')
+      return
+    }
+    if (!userId) return
+    if (!contactData.contact_name.trim()) {
+      toast.error('Vul minimaal een naam in.')
+      return
+    }
+    setSavingContact(true)
+    try {
+      const { data: newContact, error } = await supabase
+        .from('contacts')
+        .insert({
+          location_id: formData.location_id,
+          name: contactData.contact_name.trim(),
+          function: contactData.contact_function.trim() || null,
+          phone: contactData.contact_phone.trim() || null,
+          email: contactData.contact_email.trim() || null,
+          notes: contactData.contact_notes.trim() || null,
+          created_by: userId,
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+      toast.success('Contact opgeslagen')
+      await loadContactsForLocation(formData.location_id)
+      setContactData({
+        contact_id: newContact.id,
+        contact_name: newContact.name,
+        contact_function: newContact.function || '',
+        contact_phone: newContact.phone || '',
+        contact_email: newContact.email || '',
+        contact_notes: newContact.notes || '',
+      })
+      setFormData(prev => ({ ...prev, spoken_to: newContact.name }))
+      setEditingContactId(null)
+      setShowCreateContact(false)
+    } catch (e: any) {
+      console.error(e)
+      toast.error(e.message || 'Kon contact niet opslaan')
+    } finally {
+      setSavingContact(false)
+    }
+  }
+
+  const getCalendarContext = () => {
+    if (formData.location_id) {
+      const loc = locations.find(l => l.id === formData.location_id)
+      if (loc) {
+        return {
+          locationName: loc.name,
+          locationCity: loc.city,
+          locationAddress: loc.address,
+        }
+      }
+    }
+    return {
+      locationName: formData.location_name.trim() || 'Locatie',
+      locationCity: formData.location_city.trim() || null,
+      locationAddress: formData.location_address?.trim() || null,
+    }
+  }
+
+  const projectNameForCalendar = () =>
+    projects.find(p => p.id === formData.project_id)?.name ?? null
+
+  const openNextStepInCalendar = (step: VisitNextStep) => {
+    if (!step.title.trim()) {
+      toast.error('Vul eerst een titel in voor deze stap')
+      return
+    }
+    const ctx = getCalendarContext()
+    const url = createNextStepCalendarUrl({
+      stepTitle: step.title,
+      stepNotes: step.notes,
+      projectName: projectNameForCalendar(),
+      locationName: ctx.locationName,
+      locationCity: ctx.locationCity,
+      locationAddress: ctx.locationAddress,
+      dueDate: step.due_date,
+      dueTime: step.due_time,
+    })
+    window.open(url, '_blank', 'noopener,noreferrer')
+    toast.success('Google Agenda wordt geopend…')
+  }
+
+  const addNextStepRow = () => {
+    const id =
+      typeof globalThis.crypto !== 'undefined' && globalThis.crypto.randomUUID
+        ? globalThis.crypto.randomUUID()
+        : `step-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    setNextSteps(prev => [
+      ...prev,
+      {
+        id,
+        title: '',
+        due_date: null,
+        due_time: '09:00',
+        notes: null,
+      },
+    ])
+  }
+
+  const removeNextStepRow = (id: string) => {
+    setNextSteps(prev => prev.filter(s => s.id !== id))
+  }
+
+  const updateNextStep = (id: string, patch: Partial<VisitNextStep>) => {
+    setNextSteps(prev => prev.map(s => (s.id === id ? { ...s, ...patch } : s)))
+  }
+
+  // Handle location selection
+  const handleLocationSelect = async (locationId: string) => {
+    setFormData(prev => ({ ...prev, location_id: locationId }))
+    setLocationSearch('')
+    resetContactFormFields()
     setShowCreateContact(false)
     await loadContactsForLocation(locationId)
   }
@@ -418,6 +622,7 @@ export default function NewVisitPage() {
           function: contactData.contact_function || null,
           phone: contactData.contact_phone || null,
           email: contactData.contact_email || null,
+          notes: contactData.contact_notes.trim() || null,
           created_by: userId,
         })
         .select()
@@ -431,9 +636,31 @@ export default function NewVisitPage() {
         toast.success('Contactpersoon aangemaakt')
       }
     } else if (contactData.contact_id) {
-      // Use existing contact
       contactId = contactData.contact_id
+      const { error: syncErr } = await supabase
+        .from('contacts')
+        .update({
+          name: contactData.contact_name.trim(),
+          function: contactData.contact_function.trim() || null,
+          phone: contactData.contact_phone.trim() || null,
+          email: contactData.contact_email.trim() || null,
+          notes: contactData.contact_notes.trim() || null,
+        })
+        .eq('id', contactId)
+      if (syncErr) {
+        console.warn('Contact sync skipped (permissions or unchanged):', syncErr.message)
+      }
     }
+
+    const stepsPayload = nextSteps
+      .filter(s => s.title.trim() !== '')
+      .map(s => ({
+        id: s.id,
+        title: s.title.trim(),
+        due_date: s.due_date || null,
+        due_time: s.due_time && s.due_time.trim() !== '' ? s.due_time : null,
+        notes: s.notes?.trim() || null,
+      }))
 
     const { error } = await supabase
       .from('visits')
@@ -451,6 +678,7 @@ export default function NewVisitPage() {
         notes: formData.notes || null,
         status: formData.status,
         visit_date: formData.visit_date,
+        next_steps: stepsPayload,
       })
 
     if (error) throw error
@@ -703,56 +931,25 @@ export default function NewVisitPage() {
           )}
         </div>
 
-        {/* Contact Person Section */}
-        {(formData.location_id || (formData.location_name && formData.location_city)) && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <label className="block text-sm font-medium text-green-800 mb-3 flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Contactpersoon
-            </label>
-
-            {/* Show existing contacts if any */}
-            {formData.location_id && locationContacts.length > 0 && !showCreateContact && (
-              <div className="space-y-3">
-                <p className="text-sm text-green-700">Selecteer een bestaande contactpersoon of maak een nieuwe aan:</p>
-                <div className="space-y-2">
-                  {locationContacts.map(contact => (
-                    <button
-                      key={contact.id}
-                      type="button"
-                      onClick={() => {
-                        setContactData({
-                          contact_id: contact.id,
-                          contact_name: contact.name,
-                          contact_function: contact.function || '',
-                          contact_phone: contact.phone || '',
-                          contact_email: contact.email || '',
-                        })
-                        setFormData(prev => ({ ...prev, spoken_to: contact.name }))
-                      }}
-                      className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-all ${
-                        contactData.contact_id === contact.id
-                          ? 'border-green-500 bg-green-100'
-                          : 'border-green-200 bg-white hover:border-green-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <User className="h-5 w-5 text-green-600" />
-                        <div>
-                          <div className="font-medium text-gray-900">{contact.name}</div>
-                          <div className="text-sm text-gray-500 flex items-center gap-3">
-                            {contact.function && <span>{contact.function}</span>}
-                            {contact.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{contact.phone}</span>}
-                            {contact.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{contact.email}</span>}
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+        {/* Contact Person Section (CRM-style) — altijd zichtbaar; actief na locatiekeuze */}
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-3">
+              <div>
+                <label className="block text-sm font-medium text-green-800 flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Contactpersoon
+                </label>
+                <p className="text-xs text-green-700/90 mt-1">
+                  {hasLocationContext
+                    ? 'Koppel een contact aan deze visit — voeg toe, bewerk bestaande gegevens, of kies uit het adresboek van deze locatie.'
+                    : 'Zodra je hieronder een locatie hebt gekozen (of naam + stad bij een nieuwe locatie), kun je contactpersonen toevoegen of uit het adresboek kiezen.'}
+                </p>
+              </div>
+              {hasLocationContext && formData.location_id && !showCreateContact && locationContacts.length > 0 && (
                 <button
                   type="button"
                   onClick={() => {
+                    setEditingContactId(null)
                     setShowCreateContact(true)
                     setContactData({
                       contact_id: '',
@@ -760,33 +957,122 @@ export default function NewVisitPage() {
                       contact_function: '',
                       contact_phone: '',
                       contact_email: '',
+                      contact_notes: '',
                     })
                   }}
-                  className="text-sm text-green-700 hover:text-green-800 flex items-center gap-1 mt-2"
+                  className="inline-flex items-center justify-center gap-1.5 shrink-0 rounded-md border border-green-600 bg-white px-3 py-2 text-sm font-medium text-green-800 shadow-sm hover:bg-green-100"
                 >
                   <UserPlus className="h-4 w-4" />
-                  Nieuwe contactpersoon aanmaken
+                  + Contact toevoegen
                 </button>
+              )}
+            </div>
+
+            {!hasLocationContext ? (
+              <div className="rounded-lg border border-dashed border-green-300 bg-white/70 px-4 py-4 text-sm text-green-900">
+                <p className="font-medium mb-2">Eerst een locatie kiezen</p>
+                <ul className="list-disc list-inside space-y-1 text-green-800/90">
+                  <li>Zoek en selecteer een bestaande locatie hierboven, of</li>
+                  <li>
+                    klik op <span className="font-semibold">+ Create new location</span> en vul minimaal{' '}
+                    <span className="font-semibold">naam</span> en <span className="font-semibold">stad</span> in.
+                  </li>
+                </ul>
+                <p className="mt-3 text-xs text-green-700">
+                  Daarna verschijnen hier het adresboek en het formulier om contactpersonen toe te voegen of te bewerken.
+                </p>
+              </div>
+            ) : (
+            <>
+            {/* List existing contacts */}
+            {formData.location_id && locationContacts.length > 0 && !showCreateContact && (
+              <div className="space-y-3">
+                <p className="text-sm text-green-800 font-medium">Adresboek van deze locatie</p>
+                <div className="space-y-2">
+                  {locationContacts.map(contact => (
+                    <div
+                      key={contact.id}
+                      className={`flex items-stretch gap-2 rounded-lg border-2 transition-all ${
+                        contactData.contact_id === contact.id
+                          ? 'border-green-500 bg-green-100'
+                          : 'border-green-200 bg-white hover:border-green-300'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setContactData({
+                            contact_id: contact.id,
+                            contact_name: contact.name,
+                            contact_function: contact.function || '',
+                            contact_phone: contact.phone || '',
+                            contact_email: contact.email || '',
+                            contact_notes: contact.notes || '',
+                          })
+                          setFormData(prev => ({ ...prev, spoken_to: contact.name }))
+                        }}
+                        className="flex-1 text-left px-3 py-3 min-w-0"
+                      >
+                        <div className="flex items-start gap-3">
+                          <User className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+                          <div className="min-w-0">
+                            <div className="font-medium text-gray-900">{contact.name}</div>
+                            <div className="text-sm text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                              {contact.function && <span>{contact.function}</span>}
+                              {contact.phone && (
+                                <span className="flex items-center gap-1">
+                                  <Phone className="h-3 w-3 shrink-0" />
+                                  {contact.phone}
+                                </span>
+                              )}
+                              {contact.email && (
+                                <span className="flex items-center gap-1">
+                                  <Mail className="h-3 w-3 shrink-0" />
+                                  {contact.email}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                      {canEditContact(contact) && (
+                        <button
+                          type="button"
+                          title="Contact bewerken"
+                          onClick={e => {
+                            e.preventDefault()
+                            startEditContact(contact)
+                          }}
+                          className="shrink-0 px-3 py-2 border-l border-green-200 text-green-800 hover:bg-green-50 rounded-r-md"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
-            {/* Show create contact form */}
+            {/* Create / edit contact form */}
             {(showCreateContact || !formData.location_id || locationContacts.length === 0) && (
-              <div className="space-y-3">
-                {locationContacts.length > 0 && (
+              <div className="space-y-3 mt-2">
+                {formData.location_id && locationContacts.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => setShowCreateContact(false)}
+                    onClick={() => exitContactForm()}
                     className="text-sm text-green-600 hover:text-green-700"
                   >
-                    ← Terug naar bestaande contacten
+                    ← Terug naar adresboek
                   </button>
                 )}
-                
-                <p className="text-sm text-green-700">
-                  {formData.location_id && locationContacts.length === 0 
-                    ? 'Nog geen contactpersonen voor deze locatie. Maak er een aan:' 
-                    : 'Vul de gegevens van de contactpersoon in:'}
+
+                <p className="text-sm text-green-800 font-medium">
+                  {editingContactId
+                    ? 'Contact bewerken'
+                    : formData.location_id && locationContacts.length === 0
+                      ? 'Nog geen contactpersonen voor deze locatie. Voeg er een toe:'
+                      : 'Nieuwe contactpersoon — vul de gegevens in:'}
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -796,61 +1082,143 @@ export default function NewVisitPage() {
                       type="text"
                       value={contactData.contact_name}
                       onChange={(e) => {
-                        setContactData({ ...contactData, contact_name: e.target.value, contact_id: '' })
-                        setFormData(prev => ({ ...prev, spoken_to: e.target.value }))
+                        const v = e.target.value
+                        setContactData((prev) => ({
+                          ...prev,
+                          contact_name: v,
+                          contact_id: editingContactId ? prev.contact_id : '',
+                        }))
+                        if (!editingContactId) {
+                          setFormData(prev => ({ ...prev, spoken_to: v }))
+                        }
                       }}
                       placeholder="Naam *"
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
                     />
                   </div>
-                  
+
                   <div className="relative">
                     <Briefcase className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
                       type="text"
                       value={contactData.contact_function}
-                      onChange={(e) => setContactData({ ...contactData, contact_function: e.target.value, contact_id: '' })}
+                      onChange={(e) =>
+                        setContactData((prev) => ({
+                          ...prev,
+                          contact_function: e.target.value,
+                          contact_id: editingContactId ? prev.contact_id : '',
+                        }))
+                      }
                       placeholder="Functie (bijv. eigenaar, manager)"
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
                     />
                   </div>
-                  
+
                   <div className="relative">
                     <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
                       type="tel"
                       value={contactData.contact_phone}
-                      onChange={(e) => setContactData({ ...contactData, contact_phone: e.target.value, contact_id: '' })}
+                      onChange={(e) =>
+                        setContactData((prev) => ({
+                          ...prev,
+                          contact_phone: e.target.value,
+                          contact_id: editingContactId ? prev.contact_id : '',
+                        }))
+                      }
                       placeholder="Telefoonnummer"
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
                     />
                   </div>
-                  
+
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
                       type="email"
                       value={contactData.contact_email}
-                      onChange={(e) => setContactData({ ...contactData, contact_email: e.target.value, contact_id: '' })}
+                      onChange={(e) =>
+                        setContactData((prev) => ({
+                          ...prev,
+                          contact_email: e.target.value,
+                          contact_id: editingContactId ? prev.contact_id : '',
+                        }))
+                      }
                       placeholder="E-mailadres"
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
                     />
                   </div>
                 </div>
+
+                <div>
+                  <label className="flex items-center gap-2 text-xs font-medium text-green-800 mb-1">
+                    <StickyNote className="h-3.5 w-3.5" />
+                    Notities (optioneel)
+                  </label>
+                  <textarea
+                    value={contactData.contact_notes}
+                    onChange={(e) =>
+                      setContactData((prev) => ({
+                        ...prev,
+                        contact_notes: e.target.value,
+                        contact_id: editingContactId ? prev.contact_id : '',
+                      }))
+                    }
+                    placeholder="Belafspraken, voorkeuren, context voor collega's…"
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 bg-white text-sm"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => exitContactForm()}
+                    className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Annuleren
+                  </button>
+                  {editingContactId ? (
+                    <button
+                      type="button"
+                      disabled={savingContact}
+                      onClick={() => saveEditedContact()}
+                      className="rounded-md bg-green-700 px-3 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-60"
+                    >
+                      {savingContact ? 'Opslaan…' : 'Wijzigingen opslaan'}
+                    </button>
+                  ) : (
+                    formData.location_id && (
+                      <button
+                        type="button"
+                        disabled={savingContact}
+                        onClick={() => saveNewContactNow()}
+                        className="rounded-md bg-green-700 px-3 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-60"
+                      >
+                        {savingContact ? 'Opslaan…' : 'Contact nu opslaan in adresboek'}
+                      </button>
+                    )
+                  )}
+                </div>
+                {!formData.location_id && (
+                  <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-2">
+                    Je maakt een nieuwe locatie aan: het contact wordt mee opgeslagen zodra je de visit aanmaakt (of kies een bestaande locatie om nu al in het adresboek te bewaren).
+                  </p>
+                )}
               </div>
             )}
 
-            {/* Show selected contact info */}
-            {contactData.contact_id && (
+            {/* Selected contact summary (when picked from list, not in form) */}
+            {contactData.contact_id && !showCreateContact && (
               <div className="mt-3 p-3 bg-green-100 rounded-lg">
                 <p className="text-sm text-green-800">
-                  <span className="font-medium">Geselecteerd:</span> {contactData.contact_name}
+                  <span className="font-medium">Gekoppeld aan deze visit:</span> {contactData.contact_name}
                   {contactData.contact_function && ` (${contactData.contact_function})`}
                 </p>
               </div>
             )}
+            </>
+            )}
           </div>
-        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
@@ -989,6 +1357,113 @@ export default function NewVisitPage() {
             rows={4}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
+        </div>
+
+        <div className="bg-sky-50 border border-sky-200 rounded-lg p-4 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+            <div>
+              <label className="block text-sm font-medium text-sky-900 flex items-center gap-2">
+                <ListChecks className="h-4 w-4" />
+                Vervolgstappen
+              </label>
+              <p className="text-xs text-sky-800/90 mt-1">
+                Noteer afspraken of acties na deze visit. Per regel kun je direct een afspraak in{' '}
+                <strong>Google Agenda</strong> zetten (opent een nieuw tabblad).
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={addNextStepRow}
+              className="shrink-0 inline-flex items-center gap-1.5 rounded-md border border-sky-600 bg-white px-3 py-2 text-sm font-medium text-sky-900 hover:bg-sky-100"
+            >
+              <ListChecks className="h-4 w-4" />
+              Stap toevoegen
+            </button>
+          </div>
+
+          {nextSteps.length === 0 ? (
+            <p className="text-sm text-sky-800/80">Nog geen stappen — klik op &quot;Stap toevoegen&quot; om te beginnen.</p>
+          ) : (
+            <div className="space-y-4">
+              {nextSteps.map((step, index) => (
+                <div
+                  key={step.id}
+                  className="rounded-lg border border-sky-200 bg-white p-3 space-y-3 shadow-sm"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-sky-900">Stap {index + 1}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeNextStepRow(step.id)}
+                      className="text-gray-500 hover:text-red-600 p-1"
+                      title="Verwijderen"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Titel *</label>
+                    <input
+                      type="text"
+                      value={step.title}
+                      onChange={(e) => updateNextStep(step.id, { title: e.target.value })}
+                      placeholder="Bijv. Demo inplannen, contract sturen…"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Datum (agenda)</label>
+                      <input
+                        type="date"
+                        value={step.due_date || ''}
+                        onChange={(e) =>
+                          updateNextStep(step.id, { due_date: e.target.value || null })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Tijd</label>
+                      <input
+                        type="time"
+                        value={step.due_time || '09:00'}
+                        onChange={(e) =>
+                          updateNextStep(step.id, { due_time: e.target.value || null })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Extra notities</label>
+                    <textarea
+                      value={step.notes || ''}
+                      onChange={(e) =>
+                        updateNextStep(step.id, { notes: e.target.value || null })
+                      }
+                      rows={2}
+                      placeholder="Optioneel: details voor in de agenda-invite"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openNextStepInCalendar(step)}
+                      className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    >
+                      <CalendarPlus className="h-4 w-4" />
+                      In Google Agenda zetten
+                    </button>
+                    <span className="text-xs text-gray-500 self-center">
+                      Zonder datum: morgen 09:00 als voorstel
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex space-x-4">

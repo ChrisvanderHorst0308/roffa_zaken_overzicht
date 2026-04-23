@@ -3,14 +3,15 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import { VisitWithRelations, Project, VisitStatus } from '@/types'
+import { VisitWithRelations, Project, VisitStatus, ContactWithLocation } from '@/types'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Search, Calendar, MapPin, Briefcase, TrendingUp, FileText } from 'lucide-react'
+import { Plus, Search, Calendar, MapPin, Briefcase, TrendingUp, FileText, Users, Phone, Mail, ChevronRight } from 'lucide-react'
+import Modal from '@/components/Modal'
 
 export default function DashboardPage() {
   const [visits, setVisits] = useState<VisitWithRelations[]>([])
@@ -20,6 +21,8 @@ export default function DashboardPage() {
   const [selectedProject, setSelectedProject] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [isAdmin, setIsAdmin] = useState(false)
+  const [contacts, setContacts] = useState<ContactWithLocation[]>([])
+  const [contactsModalOpen, setContactsModalOpen] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -106,6 +109,17 @@ export default function DashboardPage() {
           setVisits([])
         }
       }
+
+      const { data: contactsData } = await supabase
+        .from('contacts')
+        .select(`
+          *,
+          location:locations(*)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(400)
+
+      setContacts((contactsData as ContactWithLocation[]) || [])
     } catch (error: any) {
       toast.error(error.message || 'Failed to load data')
     } finally {
@@ -224,6 +238,103 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* CRM: recent contacts */}
+      <Card className="border-emerald-100 bg-gradient-to-br from-emerald-50/80 to-white">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between space-y-0 pb-3">
+          <div className="flex items-start gap-2">
+            <Users className="h-5 w-5 text-emerald-700 mt-0.5" />
+            <div>
+              <CardTitle className="text-lg">Contactpersonen</CardTitle>
+              <CardDescription>Laatst toegevoegd — klik op een regel voor de locatie</CardDescription>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0 border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-50"
+            onClick={() => setContactsModalOpen(true)}
+            disabled={contacts.length === 0}
+          >
+            Alle contactpersonen
+            <ChevronRight className="ml-1 h-4 w-4" />
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {contacts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nog geen contactpersonen in het systeem. Voeg ze toe bij{' '}
+              <Link href="/visits/new" className="font-medium text-emerald-700 underline-offset-2 hover:underline">
+                Nieuwe visit
+              </Link>
+              .
+            </p>
+          ) : (
+            <ul className="divide-y rounded-lg border border-emerald-100 bg-white">
+              {contacts.slice(0, 5).map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/locations/${c.location_id}`)}
+                    className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left text-sm hover:bg-emerald-50/80 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-medium text-foreground truncate">{c.name}</div>
+                      <div className="text-muted-foreground truncate">
+                        {c.location?.name}, {c.location?.city}
+                        {c.function ? ` · ${c.function}` : ''}
+                      </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <Modal
+        isOpen={contactsModalOpen}
+        onClose={() => setContactsModalOpen(false)}
+        title="Alle contactpersonen"
+        panelClassName="max-w-3xl max-h-[85vh] flex flex-col"
+      >
+        <div className="overflow-y-auto flex-1 -mx-2 px-2 space-y-1 text-sm">
+          {contacts.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => {
+                setContactsModalOpen(false)
+                router.push(`/locations/${c.location_id}`)
+              }}
+              className="w-full rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-3 text-left hover:bg-emerald-50 transition-colors"
+            >
+              <div className="font-medium text-gray-900">{c.name}</div>
+              <div className="text-muted-foreground text-xs mt-0.5">
+                {c.location?.name}, {c.location?.city}
+                {c.function ? ` · ${c.function}` : ''}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
+                {c.phone && (
+                  <span className="inline-flex items-center gap-1">
+                    <Phone className="h-3 w-3" />
+                    {c.phone}
+                  </span>
+                )}
+                {c.email && (
+                  <span className="inline-flex items-center gap-1">
+                    <Mail className="h-3 w-3" />
+                    {c.email}
+                  </span>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+      </Modal>
 
       {/* Projects */}
       {projects.length > 0 && (

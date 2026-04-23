@@ -9,9 +9,11 @@ interface ModalProps {
   title: string
   children: React.ReactNode
   showCloseButton?: boolean
+  /** Wider panel for lists (e.g. CRM contact overview) */
+  panelClassName?: string
 }
 
-export default function Modal({ isOpen, onClose, title, children, showCloseButton = true }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, children, showCloseButton = true, panelClassName }: ModalProps) {
   return (
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={onClose}>
@@ -38,7 +40,7 @@ export default function Modal({ isOpen, onClose, title, children, showCloseButto
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+              <Dialog.Panel className={`w-full transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all ${panelClassName ?? 'max-w-md'}`}>
                 <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 mb-4">
                   {title}
                 </Dialog.Title>

@@ -151,3 +151,46 @@ export function createTodoListCalendarEvent(
   
   return generateGoogleCalendarUrl(event)
 }
+
+/** Vervolgstap uit een visit — opent Google Agenda met titel, locatie en gekozen datum/tijd */
+export function createNextStepCalendarUrl(params: {
+  stepTitle: string
+  stepNotes?: string | null
+  projectName?: string | null
+  locationName: string
+  locationCity?: string | null
+  locationAddress?: string | null
+  dueDate?: string | null
+  dueTime?: string | null
+}): string {
+  let start: Date
+  if (params.dueDate && params.dueDate.trim() !== '') {
+    const [y, m, d] = params.dueDate.split('-').map(Number)
+    const time = params.dueTime && params.dueTime.trim() !== '' ? params.dueTime : '09:00'
+    const [hh, mm] = time.split(':').map(Number)
+    start = new Date(y, m - 1, d, hh || 9, mm || 0, 0, 0)
+  } else {
+    start = new Date(Date.now() + 24 * 60 * 60 * 1000)
+    start.setHours(9, 0, 0, 0)
+  }
+
+  const title = `Vervolg: ${params.stepTitle.trim()}`
+  const parts = [
+    params.projectName ? `Project: ${params.projectName}` : null,
+    `Locatie: ${params.locationName}${params.locationCity ? `, ${params.locationCity}` : ''}`,
+    params.stepNotes?.trim() ? params.stepNotes.trim() : null,
+  ].filter(Boolean)
+
+  const event: CalendarEvent = {
+    title,
+    description: parts.join('\n\n'),
+    location:
+      params.locationAddress?.trim() ||
+      (params.locationCity ? `${params.locationName}, ${params.locationCity}` : params.locationName),
+    startDate: start,
+    endDate: new Date(start.getTime() + 60 * 60 * 1000),
+    allDay: false,
+  }
+
+  return generateGoogleCalendarUrl(event)
+}

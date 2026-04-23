@@ -3,11 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import { VisitWithRelations } from '@/types'
+import { VisitWithRelations, VisitNextStep } from '@/types'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { CalendarPlus, Calendar } from 'lucide-react'
-import { createVisitCalendarEvent } from '@/lib/googleCalendar'
+import { createVisitCalendarEvent, createNextStepCalendarUrl } from '@/lib/googleCalendar'
 
 export default function VisitDetailPage() {
   const params = useParams()
@@ -339,6 +339,58 @@ export default function VisitDetailPage() {
             </p>
           </div>
         </div>
+
+        {Array.isArray(visit.next_steps) && visit.next_steps.length > 0 && (
+          <div className="bg-sky-50 border border-sky-200 rounded-lg p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-sky-900 flex items-center gap-2">
+              <CalendarPlus className="h-4 w-4" />
+              Vervolgstappen
+            </h3>
+            <ul className="space-y-3">
+              {(visit.next_steps as VisitNextStep[]).map(step => (
+                <li
+                  key={step.id}
+                  className="rounded-md border border-sky-100 bg-white p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-gray-900">{step.title}</p>
+                    {(step.due_date || step.due_time) && (
+                      <p className="text-sm text-gray-600 mt-1">
+                        {step.due_date && new Date(step.due_date + 'T12:00:00').toLocaleDateString()}
+                        {step.due_date && step.due_time && ' · '}
+                        {step.due_time}
+                      </p>
+                    )}
+                    {step.notes && (
+                      <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{step.notes}</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = createNextStepCalendarUrl({
+                        stepTitle: step.title,
+                        stepNotes: step.notes,
+                        projectName: visit.project.name,
+                        locationName: visit.location.name,
+                        locationCity: visit.location.city,
+                        locationAddress: visit.location.address,
+                        dueDate: step.due_date,
+                        dueTime: step.due_time,
+                      })
+                      window.open(url, '_blank', 'noopener,noreferrer')
+                      toast.success('Google Agenda wordt geopend…')
+                    }}
+                    className="shrink-0 inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  >
+                    <CalendarPlus className="h-4 w-4" />
+                    Google Agenda
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {visit.notes && (
           <div>
